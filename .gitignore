@@ -23,3 +23,5 @@ erl_crash.dump
 /tmp/
 
 mosql.env
+STATUS.md
+producer_output.md
