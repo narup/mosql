@@ -28,7 +28,8 @@ defmodule Pipeline.MixProject do
     [
       {:broadway_mongo, in_umbrella: true},
       {:core, in_umbrella: true},
-      {:broadway, "~> 1.0"}
+      {:broadway, "~> 1.0"},
+      {:jason, "~> 1.3"}
     ]
   end
 end

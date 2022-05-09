@@ -75,6 +75,8 @@ config :core, MS.Repo,
   password: "puran",
   hostname: "purans-mac-mini"
 
+config :core, mongo_opts: mongo_opts
+
 config :pipeline,
   producer_module: {MongoChangeStream, mongo_opts}
 

@@ -6,7 +6,7 @@ defmodule MS.BroadwayMongo.Producer do
 
   @behaviour Broadway.Producer
 
-  @collection "order"
+  @collection "users"
   @supervisor_name MS.BroadwayMongo.DynamicSupervisor
 
   @doc """
@@ -124,7 +124,7 @@ defmodule MS.BroadwayMongo.Producer do
 
   @impl true
   def handle_cast({:new_resume_token, token}, state) do
-    Logger.info("storing new resume token #{inspect(token)} in the state")
+    Logger.debug("storing new resume token #{inspect(token)} in the state")
     {:noreply, [], %{state | last_resume_token: token}}
   end
 
@@ -136,7 +136,7 @@ defmodule MS.BroadwayMongo.Producer do
   end
 
   defp new_token(parent, %{"_data" => token}) do
-    Logger.info("new resume token received: #{token}")
+    Logger.debug("new resume token received: #{token}")
     GenStage.cast(parent, {:new_resume_token, token})
   end
 
