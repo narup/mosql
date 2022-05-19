@@ -31,7 +31,8 @@ defmodule MS.Core.MixProject do
       {:postgrex, ">= 0.0.0"},
       {:ecto_sql, "~> 3.7"},
       {:mongodb_driver, "~> 0.8.3"},
-      {:broadway, "~> 1.0"}
+      {:broadway, "~> 1.0"},
+      {:poison, "~> 5.0"}
     ]
   end
 end

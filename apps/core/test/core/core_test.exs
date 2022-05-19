@@ -1,5 +1,8 @@
 defmodule MS.CoreTest do
   use ExUnit.Case
+  alias MS.Core.Schema
+  alias MS.Core.Schema.Field
+
   require Logger
   doctest MS.Core
 
@@ -7,26 +10,50 @@ defmodule MS.CoreTest do
     assert MS.Core.hello() == :world
   end
 
-  test "parse schema json" do
+  test "parse well-formed schema json" do
     fp = Path.absname("test/fixtures/schema.json")
+
     with {:ok, raw_json} <- File.read(fp),
-         {:ok, schema} <- Jason.decode(raw_json, [keys: :atoms]) do
+         fields <- Poison.Parser.parse!(raw_json, %{keys: :atoms!}) do
+      schema = struct!(Schema, fields)
+      Logger.info("Parsed schema: #{inspect(schema)}")
 
-          assert schema.collection == "users"
-          assert schema.table == "user"
+      assert schema.collection == "users"
+      assert schema.table == "user"
 
-          first_field = hd(schema.fields)
-          assert first_field.column == "id"
+      struct_fields = Enum.map(schema.fields, &struct!(Field, &1))
+      schema = %Schema{schema | fields: struct_fields}
 
       Logger.info("Collection: #{inspect(schema.collection)}")
       Logger.info("Table: #{inspect(schema.table)}")
-      Logger.info("First field column: #{inspect(first_field.column)}")
+      Logger.info("Fields: #{inspect(schema.fields)}")
     else
       {:error, :enoent} ->
         IO.puts("Could not find schema.json")
 
       :error ->
         "something weird happened"
+    end
+  end
+
+  test "parse malformed schema json" do
+    fp = Path.absname("test/fixtures/schema-malformed.json")
+
+    try do
+      with {:ok, raw_json} <- File.read(fp),
+           _ <- Poison.Parser.parse!(raw_json, %{keys: :atoms!}) do
+        assert false, "JSON parsing should fail with ParseError"
+      else
+        {:error, :enoent} ->
+          assert false, "JSON parsing should fail with ParseError"
+
+        :error ->
+          assert false, "JSON parsing should fail with ParseError"
+      end
+    rescue
+      Poison.ParseError ->
+        Logger.info("Parser error happened as expected")
+        assert true, "JSON parsing error"
     end
   end
 end

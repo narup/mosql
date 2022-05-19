@@ -1,10 +1,8 @@
 defmodule MS.Core.Schema do
-  @enforce_keys [:collection, :table, :fields]
-
   @moduledoc """
   Represents the schema mapping between MongoDB collection and Postgres tabl
   """
-  defstruct collection: nil, table: nil, indexes: [], fields: []
+  defstruct collection: "", table: "", indexes: [], fields: []
 
   @typedoc """
   Schema type definition
@@ -18,12 +16,10 @@ defmodule MS.Core.Schema do
 end
 
 defmodule MS.Core.Schema.Field do
-  @enforce_keys [:field, :column, :type]
-
   @moduledoc """
   Represents the field
   """
-  defstruct field: "", column: "", type: nil
+  defstruct field: "", column: "", type: ""
 
   @typedoc """
   Field type definition
