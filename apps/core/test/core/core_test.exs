@@ -56,4 +56,9 @@ defmodule MS.CoreTest do
         assert true, "JSON parsing error"
     end
   end
+
+  test "test schema mappings" do
+    result = Schema.load_schema_mappings("users")
+    IO.inspect(result)
+  end
 end
