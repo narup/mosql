@@ -1,7 +1,8 @@
 defmodule MS.CoreTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   alias MS.Core.Schema
   alias MS.Core.Schema.Field
+  alias MS.Core.Schema.Store
 
   require Logger
   doctest MS.Core
@@ -57,8 +58,15 @@ defmodule MS.CoreTest do
     end
   end
 
-  test "test schema mappings" do
-    result = Schema.load_schema_mappings("users")
+  test "test schema load" do
+    result = Schema.load_collection("users")
     IO.inspect(result)
+
+    {:ok, schema} = result
+
+    Schema.populate_schema_store(schema)
+    assert Store.get("users.table") == "tbl_user"
+    assert Store.get("users.name.column") == "full_name"
+    assert Store.get("users.name.type") == "text"
   end
 end

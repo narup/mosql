@@ -12,7 +12,8 @@ defmodule MS.Core.Application do
 
     children = [
       MS.Repo,
-      {Mongo, mongo_opts}
+      {Mongo, mongo_opts},
+      {MS.Core.Schema.Store, %{}}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

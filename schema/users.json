@@ -1,6 +1,6 @@
 {
     "collection": "users",
-    "table": "user",
+    "table": "tbl_user",
     "indexes": ["email"],
     "fields": [
         {
