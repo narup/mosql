@@ -59,14 +59,19 @@ defmodule MS.CoreTest do
   end
 
   test "test schema load" do
-    result = Schema.load_collection("users")
-    IO.inspect(result)
+    case Schema.load_collection("users") do
+      {:ok, schema} ->
+        assert true, "users schema loaded"
 
-    {:ok, schema} = result
+        Logger.info("Loaded Schema: #{inspect(schema)}")
 
-    Schema.populate_schema_store(schema)
-    assert Store.get("users.table") == "tbl_user"
-    assert Store.get("users.name.column") == "full_name"
-    assert Store.get("users.name.type") == "text"
+        Schema.populate_schema_store(schema)
+        assert Store.get("users.table") == "tbl_user"
+        assert Store.get("users.name.column") == "full_name"
+        assert Store.get("users.name.type") == "text"
+
+      {:error, err} ->
+        assert false, err
+    end
   end
 end
