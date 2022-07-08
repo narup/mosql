@@ -11,6 +11,7 @@ defmodule MS.Core.MixProject do
       lockfile: "../../mix.lock",
       elixir: "~> 1.13",
       start_permanent: Mix.env() == :prod,
+      aliases: [test: "test --no-start"],
       deps: deps()
     ]
   end

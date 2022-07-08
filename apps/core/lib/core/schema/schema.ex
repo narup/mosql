@@ -22,6 +22,10 @@ defmodule MS.Core.Schema do
           fields: term
         }
 
+  @doc """
+  Creates a schema struct based on the collection schema definition, which is a JSON
+  that defines the mapping between MongoDB collection and the SQL table definition
+  """
   def load_collection(collection) do
     schema_file_path =
       @schema_files_path

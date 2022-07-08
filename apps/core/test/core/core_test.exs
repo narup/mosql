@@ -7,6 +7,11 @@ defmodule MS.CoreTest do
   require Logger
   doctest MS.Core
 
+  setup do
+    {:ok, store} = Store.start_link()
+    %{store: store}
+  end
+
   test "greets the world" do
     assert MS.Core.hello() == :world
   end
@@ -58,14 +63,16 @@ defmodule MS.CoreTest do
     end
   end
 
-  test "test schema load" do
+  test "test schema load", %{store: schema_store} do
     case Schema.load_collection("users") do
       {:ok, schema} ->
         assert true, "users schema loaded"
 
         Logger.info("Loaded Schema: #{inspect(schema)}")
+        Logger.info("Schema store pid #{inspect(schema_store)}")
 
         Schema.populate_schema_store(schema)
+
         assert Store.get("users.table") == "tbl_user"
         assert Store.get("users.name.column") == "full_name"
         assert Store.get("users.name.type") == "text"

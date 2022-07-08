@@ -5,15 +5,18 @@ defmodule MS.Core.Application do
 
   use Application
 
+  require Logger
+
   @impl true
   def start(_type, _args) do
+    Logger.info("MS.Core.Application started...")
     mongo_opts = Application.fetch_env!(:core, :mongo_opts)
     mongo_opts = Keyword.put(mongo_opts, :name, :mongo)
 
     children = [
       MS.Repo,
       {Mongo, mongo_opts},
-      {MS.Core.Schema.Store, %{}}
+      {MS.Core.Schema.Store}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
