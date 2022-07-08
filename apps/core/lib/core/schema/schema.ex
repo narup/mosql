@@ -1,14 +1,19 @@
 defmodule MS.Core.Schema do
   alias __MODULE__
-  alias MS.Core.Schema.Field
+  alias MS.Core.Schema.Mapping
   alias MS.Core.Schema.Store
 
   require Logger
 
+  @sql_column "column"
+  @sql_type "type"
+  @mongo_key "mongo_key"
+
   @moduledoc """
-  Represents the schema mapping between MongoDB collection and Postgres tabl
+  Represents the schema mapping between MongoDB collection and SQL table
+  ns is the namespace
   """
-  defstruct collection: "", table: "", indexes: [], fields: []
+  defstruct ns: "", collection: "", table: "", indexes: [], mappings: []
 
   @schema_files_path Application.fetch_env!(:core, :schema_files_path)
 
@@ -16,10 +21,11 @@ defmodule MS.Core.Schema do
   Schema type definition
   """
   @type t :: %__MODULE__{
+          ns: String.t(),
           collection: String.t(),
           table: String.t(),
           indexes: term,
-          fields: term
+          mappings: term
         }
 
   @doc """
@@ -36,15 +42,15 @@ defmodule MS.Core.Schema do
 
     try do
       with {:ok, raw_json} <- File.read(schema_file_path),
-           fields <- Poison.Parser.parse!(raw_json, %{keys: :atoms!}) do
-        schema = struct!(Schema, fields)
+           mappings <- Poison.Parser.parse!(raw_json, %{keys: :atoms!}) do
+        schema = struct!(Schema, mappings)
 
         Logger.info(
           "Parsed schema for collection '#{collection}' from file path '#{schema_file_path}'"
         )
 
-        struct_fields = Enum.map(schema.fields, &Field.to_struct(&1))
-        schema = %{schema | fields: struct_fields}
+        struct_mappings = Enum.map(schema.mappings, &Mapping.to_struct(&1))
+        schema = %{schema | mappings: struct_mappings}
         {:ok, schema}
       else
         {:error, :enoent} ->
@@ -58,48 +64,64 @@ defmodule MS.Core.Schema do
 
   @doc """
   store the schema mapping as key value in the Schema store
-    <collection>.table = <value>
-    <collection>.<field>.indexes = []
-    <collection>.<field>.column = <value>
-    <collection>.<field>.type = <value>
+    <namespace>.<collection>.table = <value>
+    <namespace>.<collection>.columns = [values...]
+    <namespace>.<collection>.<mongo_key>.indexes = [values...]
+    <namespace>.<collection>.<mongo_key>.column = <value>
+    <namespace>.<collection>.<mongo_key>.type = <value>
+    <namespace>.<collection>.<sql_column>.mongo_key = <value>
   """
   def populate_schema_store(schema) do
-    Store.set("#{schema.collection}.table", "#{schema.table}")
-    store_fields(schema)
+    Store.set("#{schema.ns}.#{schema.collection}.table", "#{schema.table}")
+    Store.set("#{schema.ns}.#{schema.collection}.columns", [])
+    store_mappings(schema)
   end
 
-  defp store_fields(schema) do
-    Enum.each(schema.fields, &store_field_mappings(schema.collection, &1))
+  defp store_mappings(schema) do
+    Enum.each(schema.mappings, &store_map_items(schema, &1))
   end
 
-  defp store_field_mappings(collection, field) do
-    field_key(collection, field, "column") |> Store.set(field.column)
-    field_key(collection, field, "type") |> Store.set(field.type)
+  defp store_map_items(schema, schema_map_item) do
+    store_columns("#{schema.ns}.#{schema.collection}.columns", schema_map_item)
+
+    mapping_key(schema, schema_map_item.mongo_key, @sql_column)
+    |> Store.set(schema_map_item.sql_column)
+
+    mapping_key(schema, schema_map_item.mongo_key, @sql_type)
+    |> Store.set(schema_map_item.sql_type)
+
+    mapping_key(schema, schema_map_item.sql_column, @mongo_key)
+    |> Store.set(schema_map_item.mongo_key)
   end
 
-  defp field_key(collection, field, key) do
-    "#{collection}.#{field.field}.#{key}"
+  defp mapping_key(schema, key, value) do
+    "#{schema.ns}.#{schema.collection}.#{key}.#{value}"
+  end
+
+  defp store_columns(key, schema_map_item) do
+    columns = Store.get(key)
+    Store.set(key, columns ++ [schema_map_item.sql_column])
   end
 end
 
-defmodule MS.Core.Schema.Field do
+defmodule MS.Core.Schema.Mapping do
   alias __MODULE__
 
   @moduledoc """
-  Represents the field
+  Represents the Mongo collection to SQL schema mapping
   """
-  defstruct field: "", column: "", type: ""
+  defstruct mongo_key: "", sql_column: "", sql_type: ""
 
   @typedoc """
-  Field type definition
+  Mapping type definition
   """
   @type t :: %__MODULE__{
-          field: String.t(),
-          column: String.t(),
-          type: String.t()
+          mongo_key: String.t(),
+          sql_column: String.t(),
+          sql_type: String.t()
         }
 
   def to_struct(values) do
-    struct!(Field, values)
+    struct!(Mapping, values)
   end
 end

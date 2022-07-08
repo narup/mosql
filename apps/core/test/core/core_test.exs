@@ -1,7 +1,7 @@
 defmodule MS.CoreTest do
   use ExUnit.Case, async: true
   alias MS.Core.Schema
-  alias MS.Core.Schema.Field
+  alias MS.Core.Schema.Mappings
   alias MS.Core.Schema.Store
 
   require Logger
@@ -20,19 +20,19 @@ defmodule MS.CoreTest do
     fp = Path.absname("test/fixtures/schema.json")
 
     with {:ok, raw_json} <- File.read(fp),
-         fields <- Poison.Parser.parse!(raw_json, %{keys: :atoms!}) do
-      schema = struct!(Schema, fields)
+         mappings <- Poison.Parser.parse!(raw_json, %{keys: :atoms!}) do
+      schema = struct!(Schema, mappings)
       Logger.info("Parsed schema: #{inspect(schema)}")
 
       assert schema.collection == "users"
       assert schema.table == "user"
 
-      struct_fields = Enum.map(schema.fields, &struct!(Field, &1))
-      schema = %Schema{schema | fields: struct_fields}
+      struct_mappings = Enum.map(schema.mappings, &struct!(Mappings, &1))
+      schema = %Schema{schema | mappings: struct_mappings}
 
       Logger.info("Collection: #{inspect(schema.collection)}")
       Logger.info("Table: #{inspect(schema.table)}")
-      Logger.info("Fields: #{inspect(schema.fields)}")
+      Logger.info("Mappings: #{inspect(schema.mappings)}")
     else
       {:error, :enoent} ->
         IO.puts("Could not find schema.json")
@@ -73,9 +73,12 @@ defmodule MS.CoreTest do
 
         Schema.populate_schema_store(schema)
 
-        assert Store.get("users.table") == "tbl_user"
-        assert Store.get("users.name.column") == "full_name"
-        assert Store.get("users.name.type") == "text"
+        assert Store.get("mosql.users.table") == "tbl_user"
+        assert Store.get("mosql.users.name.column") == "full_name"
+        assert Store.get("mosql.users.name.type") == "text"
+        assert Store.get("mosql.users.full_name.mongo_key") == "name"
+
+        Logger.info("Columns: #{inspect(Store.get("mosql.users.columns"))}")
 
       {:error, err} ->
         assert false, err
