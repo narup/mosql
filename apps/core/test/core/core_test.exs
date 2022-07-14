@@ -76,7 +76,9 @@ defmodule MS.CoreTest do
         assert Store.get("mosql.users.table") == "tbl_user"
         assert Store.get("mosql.users.name.column") == "full_name"
         assert Store.get("mosql.users.name.type") == "text"
+        assert Store.get("mosql.users.full_name.type") == "text"
         assert Store.get("mosql.users.full_name.mongo_key") == "name"
+        assert Store.get("mosql.users.columns") |> Enum.count() == 6
 
         Logger.info("Columns: #{inspect(Store.get("mosql.users.columns"))}")
 

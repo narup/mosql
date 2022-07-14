@@ -22,7 +22,7 @@
         {
             "mongo_key": "zip",
             "sql_column": "zip_code",
-            "sql_type": "text"
+            "sql_type": "varchar(50)"
         },
         {
             "mongo_key": "zip",

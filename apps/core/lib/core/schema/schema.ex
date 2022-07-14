@@ -69,6 +69,7 @@ defmodule MS.Core.Schema do
     <namespace>.<collection>.<mongo_key>.indexes = [values...]
     <namespace>.<collection>.<mongo_key>.column = <value>
     <namespace>.<collection>.<mongo_key>.type = <value>
+    <namespace>.<collection>.<sql_column>.type = <value>
     <namespace>.<collection>.<sql_column>.mongo_key = <value>
   """
   def populate_schema_store(schema) do
@@ -90,12 +91,15 @@ defmodule MS.Core.Schema do
     mapping_key(schema, schema_map_item.mongo_key, @sql_type)
     |> Store.set(schema_map_item.sql_type)
 
+    mapping_key(schema, schema_map_item.sql_column, @sql_type)
+    |> Store.set(schema_map_item.sql_type)
+
     mapping_key(schema, schema_map_item.sql_column, @mongo_key)
     |> Store.set(schema_map_item.mongo_key)
   end
 
-  defp mapping_key(schema, key, value) do
-    "#{schema.ns}.#{schema.collection}.#{key}.#{value}"
+  defp mapping_key(schema, field_name, field_value) do
+    "#{schema.ns}.#{schema.collection}.#{field_name}.#{field_value}"
   end
 
   defp store_columns(key, schema_map_item) do
@@ -123,5 +127,13 @@ defmodule MS.Core.Schema.Mapping do
 
   def to_struct(values) do
     struct!(Mapping, values)
+  end
+end
+
+defmodule MS.Core.Schema.SQL do
+  require Logger
+
+  def create_table(ns, collection) do
+    Logger.info("#{ns}.#{collection}")
   end
 end

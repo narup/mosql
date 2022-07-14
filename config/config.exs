@@ -76,7 +76,7 @@ config :core, MS.Repo,
   hostname: "purans-mac-mini"
 
 config :core, mongo_opts: mongo_opts
-config :core, schema_files_path: "/Users/puran/projects/personal/mosql/schema"
+config :core, schema_files_path: "/Users/puran/projects/mosql/schema"
 
 config :pipeline,
   producer_module: {MongoChangeStream, mongo_opts}
