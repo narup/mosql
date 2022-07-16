@@ -5,6 +5,8 @@ defmodule MS.Core.Schema do
 
   require Logger
 
+  @table "table"
+  @columns "columns"
   @sql_column "column"
   @sql_type "type"
   @mongo_key "mongo_key"
@@ -62,6 +64,18 @@ defmodule MS.Core.Schema do
     end
   end
 
+  def table_name(schema) do
+    mapping_key(schema, @table) |> Store.get()
+  end
+
+  def columns(schema) do
+    mapping_key(schema, @columns) |> Store.get()
+  end
+
+  def type(schema, column) do
+    mapping_key(schema, column, @sql_type) |> Store.get()
+  end
+
   @doc """
   store the schema mapping as key value in the Schema store
     <namespace>.<collection>.table = <value>
@@ -73,8 +87,8 @@ defmodule MS.Core.Schema do
     <namespace>.<collection>.<sql_column>.mongo_key = <value>
   """
   def populate_schema_store(schema) do
-    mapping_key(schema, "table") |> Store.set("#{schema.table}")
-    mapping_key(schema, "columns") |> Store.set([])
+    mapping_key(schema, @table) |> Store.set("#{schema.table}")
+    mapping_key(schema, @columns) |> Store.set([])
 
     store_mappings(schema)
   end
@@ -104,11 +118,11 @@ defmodule MS.Core.Schema do
     Store.set(key, columns ++ [schema_map_item.sql_column])
   end
 
-  def mapping_key(schema, field_name) do
+  defp mapping_key(schema, field_name) do
     "#{schema.ns}.#{schema.collection}.#{field_name}"
   end
 
-  def mapping_key(schema, field_name, field_value) do
+  defp mapping_key(schema, field_name, field_value) do
     "#{schema.ns}.#{schema.collection}.#{field_name}.#{field_value}"
   end
 end
@@ -139,7 +153,6 @@ defmodule MS.Core.Schema.SQL do
   require Logger
 
   alias MS.Core.Schema
-  alias MS.Core.Schema.Store
 
   @doc """
     Generates a SQL string for creating a table
@@ -156,11 +169,22 @@ defmodule MS.Core.Schema.SQL do
   def create_table(schema) do
     Logger.info("Generating table creation SQL for #{schema.ns}.#{schema.collection}")
 
-    table_name = Schema.mapping_key(schema, "table") |> Store.get()
-    header = "CREATE TABLE IF NOT EXISTS #{schema.ns}.#{table_name} ("
+    table_name = Schema.table_name(schema)
+
+    header = "CREATE TABLE IF NOT EXISTS #{schema.ns}.#{table_name} (\n"
+
+    columns =
+      Schema.columns(schema)
+      |> Enum.map(&column_definition(schema, &1))
+      |> Enum.join("\n,")
+
     tail = ");"
 
-    Logger.info("header: #{header}")
+    header <> " " <> columns <> " " <> tail
   end
 
+  defp column_definition(schema, column) do
+    type = Schema.type(schema, column)
+    "#{column} #{type}"
+  end
 end

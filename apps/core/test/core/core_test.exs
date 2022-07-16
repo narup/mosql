@@ -84,7 +84,7 @@ defmodule MS.CoreTest do
         Logger.info("Columns: #{inspect(Store.get("mosql.users.columns"))}")
 
         create_sql = SQL.create_table(schema)
-        Logger.info("Create table SQL: #{inspect(create_sql)}")
+        Logger.info("Create table SQL:\n #{create_sql}")
 
       {:error, err} ->
         assert false, err
