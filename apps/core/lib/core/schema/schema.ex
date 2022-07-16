@@ -31,6 +31,27 @@ defmodule MS.Core.Schema do
         }
 
   @doc """
+  Returns the SQL table name for a schema mapping definition
+  """
+  def table_name(schema) do
+    mapping_key(schema, @table) |> Store.get()
+  end
+
+  @doc """
+  Returns the SQL table column names for a schema mapping definition
+  """
+  def columns(schema) do
+    mapping_key(schema, @columns) |> Store.get()
+  end
+
+  @doc """
+  Returns the SQL table column type for a schema mapping definition and the given column
+  """
+  def type(schema, column) do
+    mapping_key(schema, column, @sql_type) |> Store.get()
+  end
+
+  @doc """
   Creates a schema struct based on the collection schema definition, which is a JSON
   that defines the mapping between MongoDB collection and the SQL table definition
   """
@@ -62,18 +83,6 @@ defmodule MS.Core.Schema do
       Poison.ParseError ->
         {:error, "JSON parsing failed for collection '#{collection}"}
     end
-  end
-
-  def table_name(schema) do
-    mapping_key(schema, @table) |> Store.get()
-  end
-
-  def columns(schema) do
-    mapping_key(schema, @columns) |> Store.get()
-  end
-
-  def type(schema, column) do
-    mapping_key(schema, column, @sql_type) |> Store.get()
   end
 
   @doc """
@@ -174,7 +183,8 @@ defmodule MS.Core.Schema.SQL do
     header = "CREATE TABLE IF NOT EXISTS #{schema.ns}.#{table_name} (\n"
 
     columns =
-      Schema.columns(schema)
+      schema
+      |> Schema.columns()
       |> Enum.map(&column_definition(schema, &1))
       |> Enum.join("\n,")
 
@@ -184,7 +194,7 @@ defmodule MS.Core.Schema.SQL do
   end
 
   defp column_definition(schema, column) do
-    type = Schema.type(schema, column)
+    type = Schema.type(schema, column) |> String.upcase()
     "#{column} #{type}"
   end
 end

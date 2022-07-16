@@ -25,9 +25,9 @@
             "sql_type": "varchar(50)"
         },
         {
-            "mongo_key": "zip",
-            "sql_column": "zip_code",
-            "sql_type": "text"
+            "mongo_key": "city",
+            "sql_column": "city",
+            "sql_type": "varchar(5)"
         },
         {
             "mongo_key": "created_date",
