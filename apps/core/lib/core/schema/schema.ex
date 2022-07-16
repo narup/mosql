@@ -73,8 +73,9 @@ defmodule MS.Core.Schema do
     <namespace>.<collection>.<sql_column>.mongo_key = <value>
   """
   def populate_schema_store(schema) do
-    Store.set("#{schema.ns}.#{schema.collection}.table", "#{schema.table}")
-    Store.set("#{schema.ns}.#{schema.collection}.columns", [])
+    mapping_key(schema, "table") |> Store.set("#{schema.table}")
+    mapping_key(schema, "columns") |> Store.set([])
+
     store_mappings(schema)
   end
 
@@ -98,13 +99,17 @@ defmodule MS.Core.Schema do
     |> Store.set(schema_map_item.mongo_key)
   end
 
-  defp mapping_key(schema, field_name, field_value) do
-    "#{schema.ns}.#{schema.collection}.#{field_name}.#{field_value}"
-  end
-
   defp store_columns(key, schema_map_item) do
     columns = Store.get(key)
     Store.set(key, columns ++ [schema_map_item.sql_column])
+  end
+
+  def mapping_key(schema, field_name) do
+    "#{schema.ns}.#{schema.collection}.#{field_name}"
+  end
+
+  def mapping_key(schema, field_name, field_value) do
+    "#{schema.ns}.#{schema.collection}.#{field_name}.#{field_value}"
   end
 end
 
@@ -133,7 +138,29 @@ end
 defmodule MS.Core.Schema.SQL do
   require Logger
 
-  def create_table(ns, collection) do
-    Logger.info("#{ns}.#{collection}")
+  alias MS.Core.Schema
+  alias MS.Core.Schema.Store
+
+  @doc """
+    Generates a SQL string for creating a table
+
+    CREATE TABLE [IF NOT EXISTS] table_name (
+      column1 datatype(length) column_contraint,
+      column2 datatype(length) column_contraint,
+      column3 datatype(length) column_contraint,
+      ...
+      table_constraints
+    );
+
+  """
+  def create_table(schema) do
+    Logger.info("Generating table creation SQL for #{schema.ns}.#{schema.collection}")
+
+    table_name = Schema.mapping_key(schema, "table") |> Store.get()
+    header = "CREATE TABLE IF NOT EXISTS #{schema.ns}.#{table_name} ("
+    tail = ");"
+
+    Logger.info("header: #{header}")
   end
+
 end

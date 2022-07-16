@@ -3,6 +3,7 @@ defmodule MS.CoreTest do
   alias MS.Core.Schema
   alias MS.Core.Schema.Mappings
   alias MS.Core.Schema.Store
+  alias MS.Core.Schema.SQL
 
   require Logger
   doctest MS.Core
@@ -81,6 +82,9 @@ defmodule MS.CoreTest do
         assert Store.get("mosql.users.columns") |> Enum.count() == 6
 
         Logger.info("Columns: #{inspect(Store.get("mosql.users.columns"))}")
+
+        create_sql = SQL.create_table(schema)
+        Logger.info("Create table SQL: #{inspect(create_sql)}")
 
       {:error, err} ->
         assert false, err
