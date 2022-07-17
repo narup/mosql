@@ -175,7 +175,7 @@ defmodule MS.Core.Schema.SQL do
     );
 
   """
-  def create_table(schema) do
+  def create_table_with_columns(schema) do
     Logger.info("Generating table creation SQL for #{schema.ns}.#{schema.collection}")
 
     table_name = Schema.table_name(schema)
@@ -193,8 +193,49 @@ defmodule MS.Core.Schema.SQL do
     header <> " " <> columns <> " " <> tail
   end
 
+  @doc """
+    Generates a SQL string for creating a table if not exists
+  """
+  def create_table_if_not_exists(schema) do
+    table_name = table_name(schema)
+    "CREATE TABLE IF NOT EXISTS #{schema.ns}.#{table_name}"
+  end
+
+  @doc """
+    Generates a SQL string for checking if a table exists in the schema
+  """
+  def table_exists(schema) do
+    table_name = table_name(schema)
+    ~s(
+        SELECT EXISTS (
+          SELECT table_name FROM information_schema.tables
+          WHERE table_schema = '#{schema.ns}' AND table_name = '#{table_name}'
+        \)
+      )
+  end
+
+  def drop_table(schema) do
+    "DROP TABLE IF EXISTS #{table_name(schema)}"
+  end
+
+  def truncate_table(schema) do
+    "TRUNCATE TABLE #{table_name(schema)}"
+  end
+
+  def create_column_if_not_exists(schema, column) do
+    table_name = table_name(schema)
+    ~s(
+        ALTER TABLE #{schema.ns}.#{table_name} ADD COLUMN
+        IF NOT EXISTS #{column_definition(schema, column)}
+    )
+  end
+
   defp column_definition(schema, column) do
     type = Schema.type(schema, column) |> String.upcase()
     "#{column} #{type}"
+  end
+
+  defp table_name(schema) do
+    Schema.table_name(schema)
   end
 end
