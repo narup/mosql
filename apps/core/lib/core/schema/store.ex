@@ -19,4 +19,8 @@ defmodule MS.Core.Schema.Store do
   def get(key) do
     Agent.get(__MODULE__, &Map.fetch!(&1, key))
   end
+
+  def get_if_exists(key, default_val) do
+    Agent.get(__MODULE__, &Map.get(&1, key, default_val))
+  end
 end

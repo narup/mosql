@@ -10,12 +10,14 @@ defmodule MS.Core.Schema do
   @sql_column "column"
   @sql_type "type"
   @mongo_key "mongo_key"
+  @primary_key "primary_key"
+  @primary_keys "primary_keys"
 
   @moduledoc """
   Represents the schema mapping between MongoDB collection and SQL table
   ns is the namespace
   """
-  defstruct ns: "", collection: "", table: "", indexes: [], mappings: []
+  defstruct ns: "", collection: "", table: "", indexes: [], primary_keys: [], mappings: []
 
   @schema_files_path Application.fetch_env!(:core, :schema_files_path)
 
@@ -27,6 +29,7 @@ defmodule MS.Core.Schema do
           collection: String.t(),
           table: String.t(),
           indexes: term,
+          primary_keys: term,
           mappings: term
         }
 
@@ -49,6 +52,13 @@ defmodule MS.Core.Schema do
   """
   def type(schema, column) do
     mapping_key(schema, column, @sql_type) |> Store.get()
+  end
+
+  @doc """
+  Returns if the column for a schema mapping is a primary key
+  """
+  def is_primary_key?(schema, column) do
+    mapping_key(schema, column, @primary_key) |> Store.get_if_exists(false)
   end
 
   @doc """
@@ -99,6 +109,11 @@ defmodule MS.Core.Schema do
     mapping_key(schema, @table) |> Store.set("#{schema.table}")
     mapping_key(schema, @columns) |> Store.set([])
 
+    if Enum.count(schema.primary_keys) > 0 do
+      pkeys = Enum.join(schema.primary_keys, ", ")
+      mapping_key(schema, @primary_keys) |> Store.set("#{pkeys}")
+    end
+
     store_mappings(schema)
   end
 
@@ -120,6 +135,9 @@ defmodule MS.Core.Schema do
 
     mapping_key(schema, schema_map_item.sql_column, @mongo_key)
     |> Store.set(schema_map_item.mongo_key)
+
+    mapping_key(schema, schema_map_item.sql_column, @primary_key)
+    |> Store.set(schema_map_item.primary_key)
   end
 
   defp store_columns(key, schema_map_item) do
@@ -142,7 +160,7 @@ defmodule MS.Core.Schema.Mapping do
   @moduledoc """
   Represents the Mongo collection to SQL schema mapping
   """
-  defstruct mongo_key: "", sql_column: "", sql_type: ""
+  defstruct mongo_key: "", sql_column: "", sql_type: "", primary_key: false
 
   @typedoc """
   Mapping type definition
@@ -150,7 +168,8 @@ defmodule MS.Core.Schema.Mapping do
   @type t :: %__MODULE__{
           mongo_key: String.t(),
           sql_column: String.t(),
-          sql_type: String.t()
+          sql_type: String.t(),
+          primary_key: boolean()
         }
 
   def to_struct(values) do
@@ -178,19 +197,17 @@ defmodule MS.Core.Schema.SQL do
   def create_table_with_columns(schema) do
     Logger.info("Generating table creation SQL for #{schema.ns}.#{schema.collection}")
 
-    table_name = Schema.table_name(schema)
-
-    header = "CREATE TABLE IF NOT EXISTS #{schema.ns}.#{table_name} (\n"
-
     columns =
       schema
       |> Schema.columns()
       |> Enum.map(&column_definition(schema, &1))
-      |> Enum.join("\n,")
+      |> Enum.join("\n\t,")
 
-    tail = ");"
-
-    header <> " " <> columns <> " " <> tail
+    ~s(
+      CREATE TABLE IF NOT EXISTS #{schema.ns}.#{table_name(schema)} (
+         #{columns}
+      \);
+    )
   end
 
   @doc """
@@ -232,7 +249,12 @@ defmodule MS.Core.Schema.SQL do
 
   defp column_definition(schema, column) do
     type = Schema.type(schema, column) |> String.upcase()
-    "#{column} #{type}"
+
+    if Schema.is_primary_key?(schema, column) do
+      "#{column} #{type} PRIMARY KEY"
+    else
+      "#{column} #{type}"
+    end
   end
 
   defp table_name(schema) do

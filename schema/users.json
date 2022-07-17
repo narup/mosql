@@ -3,11 +3,13 @@
     "collection": "users",
     "table": "tbl_user",
     "indexes": ["email"],
+    "primary_keys": ["id"],
     "mappings": [
         {
             "mongo_key": "_id",
             "sql_column": "id",
-            "sql_type": "text"
+            "sql_type": "text",
+            "primary_key": true
         },
         {
             "mongo_key": "name",

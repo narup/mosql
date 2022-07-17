@@ -10,10 +10,12 @@ defmodule MS.SchemaSQLTest do
     {:ok, store} = Store.start_link()
 
     Store.set("mosql.users.table", "tbl_user")
+    Store.set("mosql.users.primary_key", ["id"])
 
     Store.set("mosql.users._id.column", "id")
     Store.set("mosql.users.id.type", "text")
     Store.set("mosql.users.id.mongo_key", "_id")
+    Store.set("mosql.users.id.primary_key", true)
 
     Store.set("mosql.users.name.column", "full_name")
     Store.set("mosql.users.name.type", "text")
@@ -52,6 +54,9 @@ defmodule MS.SchemaSQLTest do
 
   test "test SQL queries", %{store: store, schema: schema} do
     Logger.info("Schema store pid #{inspect(store)}")
+
+    create_all_sql = SQL.create_table_with_columns(schema)
+    Logger.info("Create table with columns SQL:\n #{create_all_sql}")
 
     create_sql = SQL.create_table_if_not_exists(schema)
     Logger.info("Create table if not exists SQL:\n #{create_sql}")
