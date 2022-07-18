@@ -10,7 +10,8 @@ defmodule MS.SchemaSQLTest do
     {:ok, store} = Store.start_link()
 
     Store.set("mosql.users.table", "tbl_user")
-    Store.set("mosql.users.primary_key", ["id"])
+    Store.set("mosql.users.primary_keys", ["id"])
+    Store.set("mosql.users.tbl_user.primary_key", "id")
 
     Store.set("mosql.users._id.column", "id")
     Store.set("mosql.users.id.type", "text")
@@ -43,7 +44,7 @@ defmodule MS.SchemaSQLTest do
       "created_date"
     ])
 
-    schema = %{ns: "mosql", collection: "users"}
+    schema = %{ns: "mosql", collection: "users", table: "tbl_user"}
     %{store: store, schema: schema}
   end
 
@@ -66,5 +67,8 @@ defmodule MS.SchemaSQLTest do
 
     column_sql = SQL.create_column_if_not_exists(schema, "full_name")
     Logger.info("Add column SQL:\n #{column_sql}")
+
+    upsert_sql = SQL.upsert_document(schema)
+    Logger.info("Upsert data SQL:\n #{upsert_sql}")
   end
 end

@@ -55,10 +55,24 @@ defmodule MS.Core.Schema do
   end
 
   @doc """
+  Returns the mongo document key for a schema mapping definition and the given column
+  """
+  def mongo_key(schema, column) do
+    mapping_key(schema, column, @mongo_key) |> Store.get()
+  end
+
+  @doc """
   Returns if the column for a schema mapping is a primary key
   """
   def is_primary_key?(schema, column) do
     mapping_key(schema, column, @primary_key) |> Store.get_if_exists(false)
+  end
+
+  @doc """
+  Returns the primary key column name
+  """
+  def primary_key(schema) do
+    mapping_key(schema, schema.table, @primary_key) |> Store.get_if_exists("")
   end
 
   @doc """
@@ -138,6 +152,10 @@ defmodule MS.Core.Schema do
 
     mapping_key(schema, schema_map_item.sql_column, @primary_key)
     |> Store.set(schema_map_item.primary_key)
+
+    if schema_map_item.primary_key do
+      mapping_key(schema, schema.table, @primary_key) |> Store.set(schema_map_item.sql_column)
+    end
   end
 
   defp store_columns(key, schema_map_item) do
@@ -231,19 +249,59 @@ defmodule MS.Core.Schema.SQL do
       )
   end
 
+  @doc """
+  SQL for drop table
+  """
   def drop_table(schema) do
     "DROP TABLE IF EXISTS #{table_name(schema)}"
   end
 
+  @doc """
+  SQL for truncate table
+  """
   def truncate_table(schema) do
     "TRUNCATE TABLE #{table_name(schema)}"
   end
 
+  @doc """
+  SQL for adding a new column if it does not exists
+  """
   def create_column_if_not_exists(schema, column) do
     table_name = table_name(schema)
     ~s(
         ALTER TABLE #{schema.ns}.#{table_name} ADD COLUMN
         IF NOT EXISTS #{column_definition(schema, column)}
+    )
+  end
+
+  @doc """
+  Generates upsert SQL statement for a given schema and a mongo document
+   INSERT INTO <table_name> (column1, column2...)
+    VALUES (value1, value2...)
+    ON CONFLICT (primary_key_field) DO UPDATE SET column = EXCLUDED.column...;
+  """
+  def upsert_document(schema \\ mongo_document = %{}) do
+    table_name = table_name(schema)
+    primary_key = Schema.primary_key(schema)
+
+    column_list = schema |> Schema.columns()
+
+    columns = Enum.join(column_list, "\n\t,")
+
+    update_columns =
+      column_list
+      |> Enum.filter(&(!Schema.is_primary_key?(schema, &1)))
+      |> Enum.map(&"#{&1} = EXCLUDED.#{&1}")
+      |> Enum.join(", ")
+
+    values = column_values(schema, column_list)
+
+    ~s(
+      INSERT INTO #{schema.ns}.#{table_name} (
+         #{columns}
+      \) VALUES (
+        #{values}
+      \) ON CONFLICT ( #{primary_key} \) DO UPDATE SET #{update_columns};
     )
   end
 
@@ -255,6 +313,10 @@ defmodule MS.Core.Schema.SQL do
     else
       "#{column} #{type}"
     end
+  end
+
+  defp column_values(schema, columns) do
+    Enum.map(columns, &Schema.mongo_key(schema, &1)) |> Enum.join(", ")
   end
 
   defp table_name(schema) do
