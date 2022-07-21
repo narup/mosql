@@ -39,5 +39,10 @@ defmodule MongoTest do
 
     result = Mongo.flat_document_map(@user_document)
     IO.inspect(result)
+
+    keys = Mongo.extract_document_keys(result)
+    IO.inspect(keys)
+
+    assert Enum.count(result) == Enum.count(keys)
   end
 end

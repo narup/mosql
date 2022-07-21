@@ -23,6 +23,10 @@ defmodule MS.Core.Mongo do
     Mongo.insert_many(:mongo, collection, data)
   end
 
+  def collection_keys(collection, opts \\[]) do
+    Mongo.find(:mongo, collection, %{}, opts) |> extract_document_keys()
+  end
+
   @doc """
   Converts the mongo document map structure to flat key value pair.
   For example:
@@ -71,6 +75,13 @@ defmodule MS.Core.Mongo do
   """
   def flat_document_map(document) do
     document |> to_list() |> to_flat_map()
+  end
+
+  @doc """
+  Extract only the list of keys in a document for the given document
+  """
+  def extract_document_keys(document) do
+    flat_document_map(document) |> Map.keys()
   end
 
   defp to_list(map) when is_map(map), do: Enum.map(map, fn {k, v} -> {k, to_list(v)} end)
