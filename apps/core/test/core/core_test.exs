@@ -1,7 +1,7 @@
 defmodule MS.CoreTest do
   use ExUnit.Case, async: true
   alias MS.Core.Schema
-  alias MS.Core.Schema.Mappings
+  alias MS.Core.Schema.Mapping
   alias MS.Core.Schema.Store
 
   require Logger
@@ -27,7 +27,7 @@ defmodule MS.CoreTest do
       assert schema.collection == "users"
       assert schema.table == "user"
 
-      struct_mappings = Enum.map(schema.mappings, &struct!(Mappings, &1))
+      struct_mappings = Enum.map(schema.mappings, &struct!(Mapping, &1))
       schema = %Schema{schema | mappings: struct_mappings}
 
       Logger.info("Collection: #{inspect(schema.collection)}")
