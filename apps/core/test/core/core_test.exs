@@ -3,7 +3,6 @@ defmodule MS.CoreTest do
   alias MS.Core.Schema
   alias MS.Core.Schema.Mappings
   alias MS.Core.Schema.Store
-  alias MS.Core.Schema.SQL
 
   require Logger
   doctest MS.Core
@@ -84,6 +83,26 @@ defmodule MS.CoreTest do
         assert Store.get("mosql.users.columns") |> Enum.count() == 6
 
         Logger.info("Columns: #{inspect(Store.get("mosql.users.columns"))}")
+
+      {:error, err} ->
+        assert false, err
+    end
+  end
+
+  test "test schema load nested keys", %{store: schema_store} do
+    case Schema.load_collection("profiles") do
+      {:ok, schema} ->
+        assert true, "profiles schema loaded"
+
+        Logger.info("Loaded Schema: #{inspect(schema)}")
+        Logger.info("Schema store pid #{inspect(schema_store)}")
+
+        Schema.populate_schema_store(schema)
+
+        Logger.info("Columns: #{inspect(Schema.columns(schema))}")
+
+        assert Store.get("mosql.profiles.comm_channel_phone.type") == "text"
+        assert Store.get("mosql.profiles.comm_channel_phone.mongo_key") == "attributes.communicationChannels.phone"
 
       {:error, err} ->
         assert false, err

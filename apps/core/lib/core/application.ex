@@ -14,7 +14,6 @@ defmodule MS.Core.Application do
     mongo_opts = Keyword.put(mongo_opts, :name, :mongo)
 
     children = [
-      MS.Repo,
       {Mongo, mongo_opts},
       MS.Core.Schema.Store
     ]

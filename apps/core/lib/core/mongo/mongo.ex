@@ -23,7 +23,11 @@ defmodule MS.Core.Mongo do
     Mongo.insert_many(:mongo, collection, data)
   end
 
-  def collection_keys(collection, opts \\[]) do
+  def collections() do
+    Mongo.show_collections(:mongo)
+  end
+
+  def collection_keys(collection, opts \\ []) do
     Mongo.find(:mongo, collection, %{}, opts) |> extract_document_keys()
   end
 

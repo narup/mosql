@@ -30,7 +30,6 @@ defmodule MS.Core.MixProject do
       # {:dep_from_hexpm, "~> 0.3.0"},
       # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"},
       {:postgrex, ">= 0.0.0"},
-      {:ecto_sql, "~> 3.7"},
       {:mongodb_driver, "~> 0.8.3"},
       {:broadway, "~> 1.0"},
       {:poison, "~> 5.0"}
