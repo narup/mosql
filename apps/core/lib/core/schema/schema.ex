@@ -280,7 +280,7 @@ defmodule MS.Core.Schema.SQL do
     VALUES (value1, value2...)
     ON CONFLICT (primary_key_field) DO UPDATE SET column = EXCLUDED.column...;
   """
-  def upsert_document(schema \\ mongo_document = %{}) do
+  def upsert_document(schema, mongo_document \\ %{}) do
     table_name = table_name(schema)
     primary_key = Schema.primary_key(schema)
 
@@ -294,7 +294,7 @@ defmodule MS.Core.Schema.SQL do
       |> Enum.map(&"#{&1} = EXCLUDED.#{&1}")
       |> Enum.join(", ")
 
-    values = column_values(schema, column_list)
+    values = column_values(schema, column_list, mongo_document)
 
     ~s(
       INSERT INTO #{schema.ns}.#{table_name} (
@@ -315,8 +315,13 @@ defmodule MS.Core.Schema.SQL do
     end
   end
 
-  defp column_values(schema, columns) do
-    Enum.map(columns, &Schema.mongo_key(schema, &1)) |> Enum.join(", ")
+  defp column_values(schema, columns, mongo_document) do
+    Enum.map(columns, &column_value(schema, &1, mongo_document)) |> Enum.join(", ")
+  end
+
+  defp column_value(schema, column, mongo_document) do
+    mongo_key = Schema.mongo_key(schema, column)
+    "'#{Map.get(mongo_document, mongo_key)}'"
   end
 
   defp table_name(schema) do

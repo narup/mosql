@@ -6,6 +6,7 @@ defmodule MS.SchemaSQLTest do
 
   require Logger
 
+
   setup do
     {:ok, store} = Store.start_link()
 
@@ -53,6 +54,15 @@ defmodule MS.SchemaSQLTest do
     assert Store.get("users.table") == "user_table"
   end
 
+  @user_flat_document %{
+    "_id" => "6277f677b99d8078d17d5918",
+    "name" => "John Doe",
+    "email" => "john.doe@johndoe.com",
+    "zip" => "94117",
+    "city" => "San Francisco",
+    "created_date" => "523523525"
+  }
+
   test "test SQL queries", %{store: store, schema: schema} do
     Logger.info("Schema store pid #{inspect(store)}")
 
@@ -68,7 +78,7 @@ defmodule MS.SchemaSQLTest do
     column_sql = SQL.create_column_if_not_exists(schema, "full_name")
     Logger.info("Add column SQL:\n #{column_sql}")
 
-    upsert_sql = SQL.upsert_document(schema)
+    upsert_sql = SQL.upsert_document(schema, @user_flat_document)
     Logger.info("Upsert data SQL:\n #{upsert_sql}")
   end
 end

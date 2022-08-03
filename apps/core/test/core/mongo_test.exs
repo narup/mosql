@@ -9,7 +9,7 @@ defmodule MongoTest do
     "_id" => "6277f677b99d8078d17d5918",
     "attributes" => %{
       "communicationChannels" => %{
-        "email" => "hello@mosql.io",
+        "email" => "john.doe@johndoe.com",
         "phone" => "111222333"
       },
       "communicationPrefs" => "SMS",
@@ -26,11 +26,11 @@ defmodule MongoTest do
         "color" => "#cc00ff"
       }
     },
-    "city" => "Hanover",
-    "email" => "hello@puran.me",
-    "name" => "Puran Sarki",
-    "state" => "NJ",
-    "zip" => "07981"
+    "city" => "San Francisco",
+    "email" => "john.doe@johndoe.com",
+    "name" => "John Doe",
+    "state" => "CA",
+    "zip" => "94113"
   }
 
   test "mongo document lookup" do
