@@ -69,7 +69,7 @@ mongo_opts = url_mongo_opts
 config :core,
   ecto_repos: [MS.Repo]
 
-config :core, MS.Repo,
+config :core, :postgres_opts,
   database: "mosql_db",
   username: "puran",
   password: "puran",

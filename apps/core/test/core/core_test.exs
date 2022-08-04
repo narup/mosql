@@ -12,8 +12,9 @@ defmodule MS.CoreTest do
     %{store: store}
   end
 
-  test "greets the world" do
-    assert MS.Core.hello() == :world
+  test "key to column name" do
+    assert MS.Core.key_to_column_name("fullName") == "full_name"
+    assert MS.Core.key_to_column_name("userAddress.state") == "user_address_state"
   end
 
   test "parse well-formed schema json" do
@@ -102,7 +103,9 @@ defmodule MS.CoreTest do
         Logger.info("Columns: #{inspect(Schema.columns(schema))}")
 
         assert Store.get("mosql.profiles.comm_channel_phone.type") == "text"
-        assert Store.get("mosql.profiles.comm_channel_phone.mongo_key") == "attributes.communicationChannels.phone"
+
+        assert Store.get("mosql.profiles.comm_channel_phone.mongo_key") ==
+                 "attributes.communicationChannels.phone"
 
       {:error, err} ->
         assert false, err

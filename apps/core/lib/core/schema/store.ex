@@ -7,9 +7,9 @@ defmodule MS.Core.Schema.Store do
   Agent based key value store to store schema mapping between mongo collection and
   SQL table
   """
-  def start_link(initial_value \\ %{}) do
+  def start_link(_) do
     Logger.info("Starting schema store using Agent")
-    Agent.start_link(fn -> initial_value end, name: __MODULE__)
+    Agent.start_link(fn -> %{} end, name: __MODULE__)
   end
 
   def set(key, value) do

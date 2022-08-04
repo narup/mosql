@@ -6,7 +6,6 @@ defmodule MS.SchemaSQLTest do
 
   require Logger
 
-
   setup do
     {:ok, store} = Store.start_link()
 

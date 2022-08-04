@@ -13,8 +13,12 @@ defmodule MS.Core.Application do
     mongo_opts = Application.fetch_env!(:core, :mongo_opts)
     mongo_opts = Keyword.put(mongo_opts, :name, :mongo)
 
+    postgres_opts = Application.fetch_env!(:core, :postgres_opts)
+    postgres_opts = Keyword.put(postgres_opts, :name, :postgres)
+
     children = [
       {Mongo, mongo_opts},
+      {Postgrex, postgres_opts},
       MS.Core.Schema.Store
     ]
 

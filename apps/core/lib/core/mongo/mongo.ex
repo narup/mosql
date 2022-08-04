@@ -1,4 +1,7 @@
 defmodule MS.Core.Mongo do
+
+  alias MS.Core.Mongo.Document
+
   @doc """
   checks if the mongo connection is alive
   """
@@ -28,8 +31,9 @@ defmodule MS.Core.Mongo do
   end
 
   def collection_keys(collection, opts \\ []) do
-    Mongo.find(:mongo, collection, %{}, opts) |> extract_document_keys()
+    Mongo.find_one(:mongo, collection, %{}, opts) |> extract_document_keys()
   end
+
 
   @doc """
   Converts the mongo document map structure to flat key value pair.
@@ -85,6 +89,8 @@ defmodule MS.Core.Mongo do
   Extract only the list of keys in a document for the given document
   """
   def extract_document_keys(document) do
+    string_id = Document.string_id(document["_id"])
+    document = %{document | "_id" => string_id}
     flat_document_map(document) |> Map.keys()
   end
 
@@ -111,4 +117,10 @@ defmodule MS.Core.Mongo do
 
   defp compound_key(key, _ = ""), do: key
   defp compound_key(key, parent_key), do: "#{parent_key}.#{key}"
+end
+
+defmodule MS.Core.Mongo.Document do
+  def string_id(object_id) do
+    BSON.ObjectId.encode!(object_id)
+  end
 end
