@@ -10,7 +10,7 @@ defmodule MS.Core do
   @doc """
   Generate  a default schema mapping for a collection based on the given collection name
   """
-  def generate_schema(collection) do
+  def generate_schema_map(collection) do
     schema = %Schema{
       ns: "mosql",
       collection: collection,
