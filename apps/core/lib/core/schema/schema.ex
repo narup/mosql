@@ -12,6 +12,7 @@ defmodule MS.Core.Schema do
   @mongo_key "mongo_key"
   @primary_key "primary_key"
   @primary_keys "primary_keys"
+  @mapping "mapping"
 
   @moduledoc """
   Represents the schema mapping between MongoDB collection and SQL table
@@ -32,6 +33,13 @@ defmodule MS.Core.Schema do
           primary_keys: term,
           mappings: term
         }
+
+  @doc """
+  Return the saved schema mapping struct
+  """
+  def saved_mapping(schema) do
+    mapping_key(schema, @mapping) |> Store.get()
+  end
 
   @doc """
   Returns the SQL table name for a schema mapping definition
@@ -120,6 +128,9 @@ defmodule MS.Core.Schema do
     <namespace>.<collection>.<sql_column>.mongo_key = <value>
   """
   def populate_schema_store(schema) do
+    # Store the whole mapping first in the store
+    mapping_key(schema, @mapping) |> Store.set(schema)
+
     mapping_key(schema, @table) |> Store.set("#{schema.table}")
     mapping_key(schema, @columns) |> Store.set([])
 
@@ -303,6 +314,18 @@ defmodule MS.Core.Schema.SQL do
         #{values}
       \) ON CONFLICT ( #{primary_key} \) DO UPDATE SET #{update_columns};
     )
+  end
+
+  @type_map %{
+    "string" => "text",
+    "boolean" => "boolean",
+    "integer" => "integer",
+    "float" => "numeric",
+    "datetime" => "timestamp with time zone"
+  }
+
+  def mongo_to_sql_type(mongo_type) do
+    Map.get(@type_map, mongo_type)
   end
 
   defp column_definition(schema, column) do

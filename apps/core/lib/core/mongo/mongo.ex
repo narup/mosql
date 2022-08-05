@@ -1,6 +1,6 @@
 defmodule MS.Core.Mongo do
-
   alias MS.Core.Mongo.Document
+  alias MS.Core.Mongo.Type
 
   @doc """
   checks if the mongo connection is alive
@@ -30,10 +30,17 @@ defmodule MS.Core.Mongo do
     Mongo.show_collections(:mongo)
   end
 
+  @doc """
+  Extracts all the keys of the collection. If there are embedded fields within the collection
+  it uses the dot notation to construct the key. E.g. parentField.embeddedField.childField
+  """
   def collection_keys(collection, opts \\ []) do
     Mongo.find_one(:mongo, collection, %{}, opts) |> extract_document_keys()
   end
 
+  def flat_collection(collection, opts \\ []) do
+    Mongo.find_one(:mongo, collection, %{}, opts) |> flat_document_map()
+  end
 
   @doc """
   Converts the mongo document map structure to flat key value pair.
@@ -82,6 +89,8 @@ defmodule MS.Core.Mongo do
 
   """
   def flat_document_map(document) do
+    string_id = Document.string_id(document["_id"])
+    document = %{document | "_id" => string_id}
     document |> to_list() |> to_flat_map()
   end
 
@@ -89,13 +98,23 @@ defmodule MS.Core.Mongo do
   Extract only the list of keys in a document for the given document
   """
   def extract_document_keys(document) do
-    string_id = Document.string_id(document["_id"])
-    document = %{document | "_id" => string_id}
     flat_document_map(document) |> Map.keys()
   end
 
-  defp to_list(map) when is_map(map), do: Enum.map(map, fn {k, v} -> {k, to_list(v)} end)
-  defp to_list(v), do: v
+  defp to_list(map) when is_map(map) do
+    Enum.map(map, &break_map(&1))
+  end
+
+  defp to_list(list) when is_list(list), do: "list"
+  # defp to_list(v), do: v
+
+  defp break_map({k, v}) do
+    cond do
+      Type.typeof(v) == "map" -> {k, to_list(v)}
+      Type.typeof(v) == "list" -> {k, Enum.join(v, ", ")}
+      true -> {k, v}
+    end
+  end
 
   defp to_flat_map(list, parent_key \\ "") do
     Enum.reduce(list, %{}, fn {key, val}, acc ->
@@ -122,5 +141,29 @@ end
 defmodule MS.Core.Mongo.Document do
   def string_id(object_id) do
     BSON.ObjectId.encode!(object_id)
+  end
+end
+
+defmodule MS.Core.Mongo.Type do
+  def typeof(%DateTime{} = _) do
+    "datetime"
+  end
+
+  def typeof(a) when is_boolean(a) do
+    "boolean"
+  end
+
+  def typeof(a) do
+    cond do
+      is_map(a) -> "map"
+      is_list(a) -> "list"
+      is_bitstring(a) -> "string"
+      is_float(a) -> "float"
+      is_integer(a) -> "integer"
+      is_binary(a) -> "binary"
+      is_tuple(a) -> "tuple"
+      is_atom(a) -> "atom"
+      true -> "not_available"
+    end
   end
 end

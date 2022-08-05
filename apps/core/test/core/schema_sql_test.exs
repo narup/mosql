@@ -7,7 +7,7 @@ defmodule MS.SchemaSQLTest do
   require Logger
 
   setup do
-    {:ok, store} = Store.start_link()
+    {:ok, store} = Store.start_link([])
 
     Store.set("mosql.users.table", "tbl_user")
     Store.set("mosql.users.primary_keys", ["id"])

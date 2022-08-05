@@ -8,13 +8,8 @@ defmodule MS.CoreTest do
   doctest MS.Core
 
   setup do
-    {:ok, store} = Store.start_link()
+    {:ok, store} = Store.start_link([])
     %{store: store}
-  end
-
-  test "key to column name" do
-    assert MS.Core.key_to_column_name("fullName") == "full_name"
-    assert MS.Core.key_to_column_name("userAddress.state") == "user_address_state"
   end
 
   test "parse well-formed schema json" do
