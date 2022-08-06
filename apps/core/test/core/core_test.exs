@@ -2,7 +2,7 @@ defmodule MS.CoreTest do
   use ExUnit.Case, async: true
   alias MS.Core.Schema
   alias MS.Core.Schema.Mapping
-  alias MS.Core.Schema.Store
+  alias MS.Core.Store
 
   require Logger
   doctest MS.Core

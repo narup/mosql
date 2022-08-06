@@ -1,7 +1,7 @@
 defmodule MS.Core.Schema do
   alias __MODULE__
   alias MS.Core.Schema.Mapping
-  alias MS.Core.Schema.Store
+  alias MS.Core.Store
 
   require Logger
 

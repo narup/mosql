@@ -1,6 +1,5 @@
 defmodule MS.Core.Mongo do
-  alias MS.Core.Mongo.Document
-  alias MS.Core.Mongo.Type
+  alias MS.Core.Mongo.{Document, Type}
 
   @doc """
   checks if the mongo connection is alive
@@ -91,6 +90,7 @@ defmodule MS.Core.Mongo do
   def flat_document_map(document) do
     string_id = Document.string_id(document["_id"])
     document = %{document | "_id" => string_id}
+
     document |> to_list() |> to_flat_map()
   end
 
@@ -145,25 +145,14 @@ defmodule MS.Core.Mongo.Document do
 end
 
 defmodule MS.Core.Mongo.Type do
-  def typeof(%DateTime{} = _) do
-    "datetime"
-  end
-
-  def typeof(a) when is_boolean(a) do
-    "boolean"
-  end
-
-  def typeof(a) do
-    cond do
-      is_map(a) -> "map"
-      is_list(a) -> "list"
-      is_bitstring(a) -> "string"
-      is_float(a) -> "float"
-      is_integer(a) -> "integer"
-      is_binary(a) -> "binary"
-      is_tuple(a) -> "tuple"
-      is_atom(a) -> "atom"
-      true -> "not_available"
-    end
-  end
+  def typeof(%DateTime{} = _), do: "datetime"
+  def typeof(a) when is_boolean(a), do: "boolean"
+  def typeof(a) when is_map(a), do: "map"
+  def typeof(a) when is_list(a), do: "map"
+  def typeof(a) when is_bitstring(a), do: "string"
+  def typeof(a) when is_float(a), do: "float"
+  def typeof(a) when is_integer(a), do: "integer"
+  def typeof(a) when is_binary(a), do: "binary"
+  def typeof(a) when is_tuple(a), do: "tuple"
+  def typeof(a) when is_atom(a), do: "atom"
 end

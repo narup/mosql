@@ -1,4 +1,4 @@
-defmodule MS.Core.Schema.Store do
+defmodule MS.Core.Store do
   use Agent
 
   require Logger

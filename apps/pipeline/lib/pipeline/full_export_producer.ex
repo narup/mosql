@@ -1,4 +1,4 @@
-defmodule MS.Pipeline.Producer do
+defmodule MS.Pipeline.FullExportProducer do
   use GenStage
 
   def start_link(number) do
@@ -10,8 +10,7 @@ defmodule MS.Pipeline.Producer do
   end
 
   def handle_demand(demand, counter) when demand > 0 do
-    IO.puts("Handle demand #{demand}")
-    events = []
+    events = Enum.to_list(counter..(counter + demand - 1))
     {:noreply, events, counter + demand}
   end
 end

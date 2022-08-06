@@ -35,12 +35,16 @@ defmodule MongoTest do
 
   test "mongo document lookup" do
     IO.inspect(@user_document["attributes"]["communicationChannels"]["email"])
-    assert @user_document["attributes"]["communicationChannels"]["email"] == "hello@mosql.io"
 
-    result = Mongo.flat_document_map(@user_document)
+    assert @user_document["attributes"]["communicationChannels"]["email"] ==
+             "john.doe@johndoe.com"
+
+    object_id = BSON.ObjectId.decode!(@user_document["_id"])
+    document = %{@user_document | "_id" => object_id}
+    result = Mongo.flat_document_map(document)
     IO.inspect(result)
 
-    keys = Mongo.extract_document_keys(result)
+    keys = Mongo.extract_document_keys(document)
     IO.inspect(keys)
 
     assert Enum.count(result) == Enum.count(keys)

@@ -5,8 +5,7 @@ defmodule MS.Core do
 
   alias MS.Core.Mongo
   alias MS.Core.Schema
-  alias MS.Core.Schema.SQL
-  alias MS.Core.Schema.Mapping
+  alias MS.Core.Schema.{SQL, Mapping}
 
   @doc """
   Generates and loads the schema mapping to the schema mapping store for MongoDB collection to SQL data

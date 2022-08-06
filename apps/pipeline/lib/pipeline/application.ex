@@ -8,7 +8,8 @@ defmodule MS.Pipeline.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      {MS.Pipeline, []}
+      # {MS.Pipeline.ChangeStream, []},
+      {MS.Pipeline.FullExport, []}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
