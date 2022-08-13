@@ -11,18 +11,18 @@ import Config
 
 alias MS.BroadwayMongo.Producer, as: MongoChangeStream
 
-mongo_user = System.get_env("MONGO_USER") || raise "MONGO_USER env not set"
-mongo_password = System.get_env("MONGO_PASSWORD") || raise "MONGO_PASSWORD env not set"
+mongo_user = System.get_env("MONGO_USER") || "MONGO_USER not set"
+mongo_password = System.get_env("MONGO_PASSWORD") || "MONGO_PASSWORD not set"
 
-mongo_db_name = System.get_env("MONGO_DBNAME")
-mongo_replica_url = System.get_env("MONGO_REPLICA_URL")
+mongo_db_name = System.get_env("MONGO_DBNAME") || "MONGO_DBNAME not set"
+mongo_replica_url = System.get_env("MONGO_REPLICA_URL") || "MONGO_REPLICA_URL not set"
 
 # Using an SRV URI also discovers all nodes of the deployment automatically
 # Example: mongodb+srv://pss-mongo-cluster.xpbte.mongodb.net/mosql
-mongo_srv_url = System.get_env("MONGO_SRV_URL")
+mongo_srv_url = System.get_env("MONGO_SRV_URL") || "MONGO_SRV_URL not set"
 
 mongo_replica_name =
-  System.get_env("MONGO_REPLICA_NAME") || raise "MONGO_REPLICA_NAME env not set"
+  System.get_env("MONGO_REPLICA_NAME") || "MONGO_REPLICA_NAME not set"
 
 # By default, the driver will discover the deployment's topology and will connect to
 # the replica set automatically, using either the seed list syntax or the URI syntax.

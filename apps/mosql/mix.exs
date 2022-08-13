@@ -11,7 +11,7 @@ defmodule MS.MixProject do
       lockfile: "../../mix.lock",
       elixir: "~> 1.13",
       start_permanent: Mix.env() == :prod,
-      aliases: [test: "test --no-start"],
+      aliases: aliases(),
       deps: deps()
     ]
   end
@@ -33,7 +33,13 @@ defmodule MS.MixProject do
       {:mongodb_driver, "~> 0.8.3"},
       {:broadway, "~> 1.0"},
       {:poison, "~> 5.0"},
-      {:broadway_mongo, in_umbrella: true},
+      {:broadway_mongo, in_umbrella: true}
+    ]
+  end
+
+  defp aliases do
+    [
+      test: "test --no-start"
     ]
   end
 end

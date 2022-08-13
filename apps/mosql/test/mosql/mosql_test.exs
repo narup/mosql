@@ -8,7 +8,8 @@ defmodule MS.MSTest do
   doctest MS
 
   setup do
-    {:ok, store} = Store.start_link([])
+    {:ok, store} = start_supervised(Store)
+    Logger.info("mosql test PID #{inspect(store)}")
     %{store: store}
   end
 

@@ -7,7 +7,9 @@ defmodule MS.SchemaSQLTest do
   require Logger
 
   setup do
-    {:ok, store} = Store.start_link([])
+    {:ok, store} = start_supervised(Store)
+    Logger.info("schema test PID #{inspect(store)}")
+    %{store: store}
 
     Store.set("mosql.users.table", "tbl_user")
     Store.set("mosql.users.primary_keys", ["id"])

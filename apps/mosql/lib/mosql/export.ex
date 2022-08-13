@@ -12,11 +12,11 @@ defmodule MS.Export do
   Export type definition
   """
   @type t :: %__MODULE__{
-    ns: String.t(),
-    type: String.t(),
-    connection_opts: term,
-    schemas: term
-  }
+          ns: String.t(),
+          type: String.t(),
+          connection_opts: term,
+          schemas: term
+        }
 
   @doc """
   Creates a new export definition based on the given namespace and type
@@ -48,5 +48,4 @@ defmodule MS.Export do
     Store.set("#{namespace}.export.#{type}", export)
     export
   end
-
 end
