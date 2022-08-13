@@ -1,5 +1,5 @@
-defmodule MS.Core.Mongo do
-  alias MS.Core.Mongo.{Document, Type}
+defmodule MS.Mongo do
+  alias MS.Mongo.{Document, Type}
 
   @doc """
   checks if the mongo connection is alive
@@ -138,13 +138,13 @@ defmodule MS.Core.Mongo do
   defp compound_key(key, parent_key), do: "#{parent_key}.#{key}"
 end
 
-defmodule MS.Core.Mongo.Document do
+defmodule MS.Mongo.Document do
   def string_id(object_id) do
     BSON.ObjectId.encode!(object_id)
   end
 end
 
-defmodule MS.Core.Mongo.Type do
+defmodule MS.Mongo.Type do
   def typeof(%DateTime{} = _), do: "datetime"
   def typeof(a) when is_boolean(a), do: "boolean"
   def typeof(a) when is_map(a), do: "map"

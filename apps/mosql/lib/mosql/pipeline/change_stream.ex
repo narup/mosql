@@ -12,7 +12,7 @@ defmodule MS.Pipeline.ChangeStream do
       Broadway.start_link(__MODULE__,
         name: __MODULE__,
         producer: [
-          module: Application.fetch_env!(:pipeline, :producer_module)
+          module: Application.fetch_env!(:mosql, :producer_module)
         ],
         processors: [
           default: [concurrency: 1]

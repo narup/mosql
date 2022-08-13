@@ -1,11 +1,11 @@
-defmodule MS.CoreTest do
+defmodule MS.MSTest do
   use ExUnit.Case, async: true
-  alias MS.Core.Schema
-  alias MS.Core.Schema.Mapping
-  alias MS.Core.Store
+  alias MS.Schema
+  alias MS.Schema.Mapping
+  alias MS.Store
 
   require Logger
-  doctest MS.Core
+  doctest MS
 
   setup do
     {:ok, store} = Store.start_link([])

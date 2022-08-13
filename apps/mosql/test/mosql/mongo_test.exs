@@ -1,7 +1,7 @@
 defmodule MongoTest do
   use ExUnit.Case, async: true
 
-  alias MS.Core.Mongo
+  alias MS.Mongo
 
   require Logger
 

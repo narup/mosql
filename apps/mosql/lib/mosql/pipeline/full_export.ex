@@ -44,7 +44,7 @@ defmodule MS.Pipeline.FullExport do
     IO.puts("=====batcher begin=======")
     Logger.debug("#{inspect(messages)}")
     IO.puts("=====batcher end=======")
-    Process.sleep(4000)
+    Process.sleep(1000)
     IO.puts("=====FINAL OUTPUT=======")
     messages
   end
@@ -61,5 +61,6 @@ defmodule MS.Pipeline.FullExport do
   def ack(:ack_id, successful, failed) do
     # Write ack code here
     IO.puts("Ack: #{inspect(successful)} - #{inspect(failed)}")
+    :ok
   end
 end

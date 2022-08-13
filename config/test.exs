@@ -1,8 +1,8 @@
 import Config
 
-config :core, schema_files_path: "/Users/puran/projects/mosql/apps/core/test/fixtures"
+config :mosql, schema_files_path: "/Users/puran/projects/mosql/apps/mosql/test/fixtures"
 
-config :core, :postgres_opts,
+config :mosql, :postgres_opts,
   database: "mosql_db",
   username: "puran",
   password: "puran",

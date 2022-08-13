@@ -1,9 +1,9 @@
-defmodule Pipeline.MixProject do
+defmodule MS.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :pipeline,
+      app: :mosql,
       version: "0.1.0",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
@@ -11,6 +11,7 @@ defmodule Pipeline.MixProject do
       lockfile: "../../mix.lock",
       elixir: "~> 1.13",
       start_permanent: Mix.env() == :prod,
+      aliases: [test: "test --no-start"],
       deps: deps()
     ]
   end
@@ -18,17 +19,21 @@ defmodule Pipeline.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger, :observer],
-      mod: {MS.Pipeline.Application, []}
+      extra_applications: [:logger],
+      mod: {MS.Application, []}
     ]
   end
 
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      # {:dep_from_hexpm, "~> 0.3.0"},
+      # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"},
+      {:postgrex, ">= 0.0.0"},
+      {:mongodb_driver, "~> 0.8.3"},
+      {:broadway, "~> 1.0"},
+      {:poison, "~> 5.0"},
       {:broadway_mongo, in_umbrella: true},
-      {:core, in_umbrella: true},
-      {:broadway, "~> 1.0"}
     ]
   end
 end

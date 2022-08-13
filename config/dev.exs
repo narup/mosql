@@ -1,6 +1,6 @@
 import Config
 
-config :core, :postgres_opts,
+config :mosql, :postgres_opts,
   database: "mosql_db",
   username: "puran",
   password: "puran",

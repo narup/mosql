@@ -1,20 +1,25 @@
-defmodule MS.Core do
+defmodule MS do
   @moduledoc """
-  Documentation for `MS.Core`.
+  Documentation for `MS`.
   """
 
-  alias MS.Core.Mongo
-  alias MS.Core.Schema
-  alias MS.Core.Schema.{SQL, Mapping}
+  alias MS.Mongo
+  alias MS.Schema
+  alias MS.Schema.{SQL, Mapping}
+  alias MS.Export
 
   @doc """
-  Generates and loads the schema mapping to the schema mapping store for MongoDB collection to SQL data
-  translation. Both schema struct and the mapping key/values are stored in the MS.Core.Schema.Store
+  creates the complete postgres type export definition for the given namespace
   """
-  def load_collection_mapping(collection) do
-    schema = generate_schema_map(collection)
-    Schema.populate_schema_store(schema)
-    {:ok, schema}
+  def create_postgres_export(namespace) do
+    case Export.new(namespace, "postgres") do
+      :already_exists -> Export.fetch(namespace, "postgres")
+      export -> populate_export(export)
+    end
+  end
+
+  defp populate_export(export) do
+    export
   end
 
   @doc """
@@ -31,17 +36,16 @@ defmodule MS.Core do
     }
 
     flat_document = Mongo.flat_collection(collection)
-    IO.inspect(flat_document)
 
     mappings = flat_document |> Map.keys() |> generate_mappings(flat_document)
     %{schema | mappings: mappings}
   end
 
-  def generate_mappings(keys, flat_document) do
+  defp generate_mappings(keys, flat_document) do
     Enum.map(keys, &generate_field_mapping(&1, flat_document))
   end
 
-  def generate_field_mapping(key, flat_document) do
+  defp generate_field_mapping(key, flat_document) do
     sql_type = extract_sql_type(key, flat_document)
     sql_column = key_to_column_name(key)
     field_mapping_for_key(key, sql_column, sql_type)
@@ -66,7 +70,7 @@ defmodule MS.Core do
 
   defp extract_sql_type(key, flat_document) do
     val = Map.get(flat_document, key)
-    mongo_type = MS.Core.Mongo.Type.typeof(val)
+    mongo_type = MS.Mongo.Type.typeof(val)
     SQL.mongo_to_sql_type(mongo_type)
   end
 

@@ -1,4 +1,4 @@
-defmodule MS.Core.Store do
+defmodule MS.Store do
   use Agent
 
   require Logger
@@ -22,5 +22,9 @@ defmodule MS.Core.Store do
 
   def get_if_exists(key, default_val) do
     Agent.get(__MODULE__, &Map.get(&1, key, default_val))
+  end
+
+  def get_all_keys() do
+    Agent.get(__MODULE__, &Map.keys/1)
   end
 end

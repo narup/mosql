@@ -66,13 +66,10 @@ url_mongo_opts = [
 
 mongo_opts = url_mongo_opts
 
-config :core,
-  ecto_repos: [MS.Repo]
+config :mosql, mongo_opts: mongo_opts
+config :mosql, schema_files_path: "/Users/puran/projects/personal/mosql/schema"
 
-config :core, mongo_opts: mongo_opts
-config :core, schema_files_path: "/Users/puran/projects/personal/mosql/schema"
-
-config :pipeline,
+config :mosql,
   producer_module: {MongoChangeStream, mongo_opts}
 
 config :logger, :console,

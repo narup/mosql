@@ -1,7 +1,7 @@
-defmodule MS.Core.Schema do
+defmodule MS.Schema do
   alias __MODULE__
-  alias MS.Core.Schema.Mapping
-  alias MS.Core.Store
+  alias MS.Schema.Mapping
+  alias MS.Store
 
   require Logger
 
@@ -20,7 +20,7 @@ defmodule MS.Core.Schema do
   """
   defstruct ns: "", collection: "", table: "", indexes: [], primary_keys: [], mappings: []
 
-  @schema_files_path Application.fetch_env!(:core, :schema_files_path)
+  @schema_files_path Application.fetch_env!(:mosql, :schema_files_path)
 
   @typedoc """
   Schema type definition
@@ -183,7 +183,7 @@ defmodule MS.Core.Schema do
   end
 end
 
-defmodule MS.Core.Schema.Mapping do
+defmodule MS.Schema.Mapping do
   alias __MODULE__
 
   @moduledoc """
@@ -206,10 +206,10 @@ defmodule MS.Core.Schema.Mapping do
   end
 end
 
-defmodule MS.Core.Schema.SQL do
+defmodule MS.Schema.SQL do
   require Logger
 
-  alias MS.Core.Schema
+  alias MS.Schema
 
   @doc """
     Generates a SQL string for creating a table
