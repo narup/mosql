@@ -4,9 +4,15 @@ defmodule MS.Export do
   alias MS.Store
 
   @moduledoc """
-  Represents the export definition and configurations
+  Represents the export definition and other configurations of the export
+  `ns` namespace has to be unique across the system
+
+  `exclusions` optional list of collections to exclude from the export
+
+  `exclusives` optional list of only collections to export. if only list is present exclusion
+  list is ignored.
   """
-  defstruct ns: "", type: "", schemas: [], connection_opts: []
+  defstruct ns: "", type: "", schemas: [], connection_opts: [], exclusions: [], exclusives: []
 
   @typedoc """
   Export type definition
@@ -25,7 +31,7 @@ defmodule MS.Export do
   def new(namespace, type) do
     case fetch(namespace, type) do
       nil -> create(namespace, type)
-      _ -> :already_exists
+      _ -> {:error, :already_exists}
     end
   end
 
@@ -33,7 +39,7 @@ defmodule MS.Export do
   Fetch the saved export for the given namespace and type. Returns nil if there's none exists
   """
   def fetch(namespace, type) do
-    Store.get_if_exists("#{namespace}.export.#{type}", nil)
+    {:ok, Store.get_if_exists("#{namespace}.export.#{type}", nil)}
   end
 
   @doc """
@@ -43,9 +49,42 @@ defmodule MS.Export do
     Store.set("#{namespace}.export.#{type}", export)
   end
 
+  @doc """
+  Add list of collections to exclude from the export. Schema definition
+  generation is also skipped for these excluded collections
+  """
+  def add_exclusions(namespace, type, exclusions) do
+    case fetch(namespace, type) do
+      {:ok, nil} ->
+        {:error, :export_not_found}
+
+      {:ok, export} ->
+        export = %{export | exclusions: exclusions}
+        update(namespace, type, export)
+        {:ok, export}
+    end
+  end
+
+  @doc """
+  Add a list of only collections to export. If this is present all the other collections
+  are excluded by default even if exclusion list is present
+  """
+  def add_exclusives(namespace, type, exclusives) do
+    case fetch(namespace, type) do
+      {:ok, nil} ->
+        {:error, :export_not_found}
+
+      {:ok, export} ->
+        export = %{export | exclusives: exclusives}
+        update(namespace, type, export)
+
+        {:ok, export}
+    end
+  end
+
   defp create(namespace, type) do
     export = %Export{ns: namespace, type: type}
     Store.set("#{namespace}.export.#{type}", export)
-    export
+    {:ok, export}
   end
 end

@@ -10,16 +10,20 @@ defmodule MS do
 
   require Logger
 
+  @type_postgres "postgres"
+
   @doc """
   creates the complete postgres type export definition for the given namespace
   """
-  def create_postgres_export(namespace) do
-    case Export.new(namespace, "postgres") do
-      :already_exists ->
-        export = Export.fetch(namespace, "postgres")
+  def create_postgres_export(namespace, connection_opts) do
+    case Export.new(namespace, @type_postgres) do
+      {:error, :already_exists} ->
+        {:ok, export} = Export.fetch(namespace, @type_postgres)
         populate_export_schemas(export)
 
       export ->
+        export = %{export | connection_opts: connection_opts}
+        Export.update(export.ns, export.type, export)
         populate_export_schemas(export)
     end
   end
