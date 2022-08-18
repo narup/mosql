@@ -8,26 +8,43 @@ defmodule MS do
   alias MS.Schema.{SQL, Mapping}
   alias MS.Export
 
+  require Logger
+
   @doc """
   creates the complete postgres type export definition for the given namespace
   """
   def create_postgres_export(namespace) do
     case Export.new(namespace, "postgres") do
-      :already_exists -> Export.fetch(namespace, "postgres")
-      export -> populate_export(export)
+      :already_exists ->
+        export = Export.fetch(namespace, "postgres")
+        populate_export_schemas(export)
+
+      export ->
+        populate_export_schemas(export)
     end
   end
 
-  defp populate_export(export) do
-    export
+  @doc """
+  Load all the schema definition from the given export to the schema store. This function has
+  to be called before we start the export process
+  """
+  def store_export_schemas(export) do
+    export.schemas |> Enum.each(&Schema.populate_schema_store(&1))
+  end
+
+  defp populate_export_schemas(export) do
+    schemas = Mongo.collections() |> Enum.map(&generate_schema_map(export.ns, &1))
+    %{export | schemas: schemas}
   end
 
   @doc """
   Generate  a default schema mapping for a collection based on the given collection name
   """
-  def generate_schema_map(collection) do
+  def generate_schema_map(namespace, collection) do
+    Logger.info("Generating schema for namespace #{namespace} and collection #{collection}")
+
     schema = %Schema{
-      ns: "mosql",
+      ns: namespace,
       collection: collection,
       table: Macro.underscore(collection),
       indexes: [],

@@ -21,8 +21,7 @@ mongo_replica_url = System.get_env("MONGO_REPLICA_URL") || "MONGO_REPLICA_URL no
 # Example: mongodb+srv://pss-mongo-cluster.xpbte.mongodb.net/mosql
 mongo_srv_url = System.get_env("MONGO_SRV_URL") || "MONGO_SRV_URL not set"
 
-mongo_replica_name =
-  System.get_env("MONGO_REPLICA_NAME") || "MONGO_REPLICA_NAME not set"
+mongo_replica_name = System.get_env("MONGO_REPLICA_NAME") || "MONGO_REPLICA_NAME not set"
 
 # By default, the driver will discover the deployment's topology and will connect to
 # the replica set automatically, using either the seed list syntax or the URI syntax.
