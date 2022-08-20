@@ -28,9 +28,9 @@ defmodule MS.Export do
   Creates a new export definition based on the given namespace and type
   namespace should be unique among all the exports saved in the system
   """
-  def new(namespace, type) do
+  def new(namespace, type, options \\ []) do
     case fetch(namespace, type) do
-      nil -> create(namespace, type)
+      {:ok, nil} -> create(namespace, type, options)
       _ -> {:error, :already_exists}
     end
   end
@@ -82,8 +82,26 @@ defmodule MS.Export do
     end
   end
 
-  defp create(namespace, type) do
-    export = %Export{ns: namespace, type: type}
+  def has_exclusives?(export) do
+    Enum.count(export.exclusives) > 0
+  end
+
+  def has_exclusions?(export) do
+    Enum.count(export.exclusions) > 0
+  end
+
+  defp create(namespace, type, options) do
+    defaults = [connection_opts: [], exclusions: [], exclusives: []]
+    merged_options = Keyword.merge(defaults, options) |> Enum.into(%{})
+
+    export = %Export{
+      ns: namespace,
+      type: type,
+      connection_opts: merged_options.connection_opts,
+      exclusions: merged_options.exclusions,
+      exclusives: merged_options.exclusives
+    }
+
     Store.set("#{namespace}.export.#{type}", export)
     {:ok, export}
   end

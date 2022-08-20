@@ -66,7 +66,7 @@ url_mongo_opts = [
 mongo_opts = url_mongo_opts
 
 config :mosql, mongo_opts: mongo_opts
-config :mosql, schema_files_path: "/Users/puran/projects/personal/mosql/schema"
+config :mosql, schema_files_path: "/Users/puran/projects/personal/mosql/test/fixtures"
 
 config :mosql,
   producer_module: {MongoChangeStream, mongo_opts}

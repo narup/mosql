@@ -1,4 +1,4 @@
-defmodule MS do
+defmodule MS.Base do
   @moduledoc """
   Documentation for `MS`.
   """
@@ -15,30 +15,53 @@ defmodule MS do
   @doc """
   creates the complete postgres type export definition for the given namespace
   """
-  def create_postgres_export(namespace, connection_opts) do
-    case Export.new(namespace, @type_postgres) do
-      {:error, :already_exists} ->
-        {:ok, export} = Export.fetch(namespace, @type_postgres)
+  def create_postgres_export(namespace, options \\ []) do
+    case Export.new(namespace, @type_postgres, options) do
+      {:ok, export} ->
         populate_export_schemas(export)
 
-      export ->
-        export = %{export | connection_opts: connection_opts}
-        Export.update(export.ns, export.type, export)
-        populate_export_schemas(export)
+      {:error, :already_exists} ->
+        Logger.info("Export already exists. Genera")
+        Export.fetch(namespace, @type_postgres)
     end
   end
 
   @doc """
-  Load all the schema definition from the given export to the schema store. This function has
-  to be called before we start the export process
+  Populate the given export schemas with schema definition based on the
+  collection list and export definition
+  """
+  def populate_export_schemas(export) do
+    schemas = final_collection_list(export) |> Enum.map(&generate_schema_map(export.ns, &1))
+    export = %{export | schemas: schemas}
+    Export.update(export.ns, export.type, export)
+  end
+
+  @doc """
+  Load all the schema definition from the given export to the schema store.
+  This function has to be called before we start the export process
   """
   def store_export_schemas(export) do
     export.schemas |> Enum.each(&Schema.populate_schema_store(&1))
   end
 
-  defp populate_export_schemas(export) do
-    schemas = Mongo.collections() |> Enum.map(&generate_schema_map(export.ns, &1))
-    %{export | schemas: schemas}
+  defp final_collection_list(export) do
+    collections = Mongo.collections()
+
+    cond do
+      Export.has_exclusives?(export) > 0 -> filter_exclusives(collections, export.exclusives)
+      Export.has_exclusions?(export) > 0 -> filter_exclusions(collections, export.exclusions)
+      true -> collections
+    end
+  end
+
+  ## good to loop over actual collections to avoid typos on exclusives
+  defp filter_exclusives(collections, exclusives) do
+    Enum.filter(collections, &Enum.member?(exclusives, &1))
+  end
+
+  ## good to loop over actual collections to avoid typos on exclusives
+  defp filter_exclusions(collections, exclusions) do
+    Enum.filter(collections, fn coll -> Enum.member?(exclusions, coll) == false end)
   end
 
   @doc """
