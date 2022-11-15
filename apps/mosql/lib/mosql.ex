@@ -1,11 +1,34 @@
-defmodule MS.Base do
+defmodule MS.MoSQL do
   @moduledoc """
-  Documentation for `MS`.
+  Specification for `MS.MoSQL`. It is used to export data from MongoDB
+  database to Postgres database
+
+  There are two kind of MoSQL exports: full export and change stream
+
+  ## FullExport
+
+  FullExport is used to do a one time full export of MongoDB database
+  to a destination Postgres database using the schema mapping definitions
+  that maps each collection and document fields to SQL table and table
+  attributes. The process to start the export:
+
+    1. Create a postgres export type with a namespace. Namespace has to be unique
+
+      MS.MoSQL.create_postgres_export("my_namespace")
+
+      The export can be customized by using the `options` argument
+      to provide `exclusions` and `exclusives`
+       * `:exclusions` - the list of collections to exclude from the export
+       * `:exclusives` - the list of collections that must be included
+
+    2. Generate export schema definition files
+      MS.MoSQL.generate_schema_files(export, schema_path)
+
+    3. Trigger full export
+      MS.MoSQL.start_full_export(export)
   """
 
-  alias MS.Mongo
-  alias MS.Schema
-  alias MS.Schema.{SQL, Mapping}
+  alias MS.Pipeline.FullExport
   alias MS.Export
 
   require Logger
@@ -16,111 +39,35 @@ defmodule MS.Base do
   creates the complete postgres type export definition for the given namespace
   """
   def create_postgres_export(namespace, options \\ []) do
-    case Export.new(namespace, @type_postgres, options) do
-      {:ok, export} ->
-        populate_export_schemas(export)
-
-      {:error, :already_exists} ->
-        Logger.info("Export already exists. Genera")
-        Export.fetch(namespace, @type_postgres)
-    end
+    Export.new(namespace, @type_postgres, options)
   end
 
   @doc """
-  Populate the given export schemas with schema definition based on the
-  collection list and export definition
+  Generate the given export schemas with JSON schema definition files in a given
+  path. These schema definitions can be modified to customize the export at the
+  collection and field level
   """
-  def populate_export_schemas(export) do
-    schemas = final_collection_list(export) |> Enum.map(&generate_schema_map(export.ns, &1))
+  def generate_schema_files(export, schema_path) do
+    schemas = Export.generate_schema_mappings(export)
+
     export = %{export | schemas: schemas}
-    Export.update(export.ns, export.type, export)
+    Export.to_json(export, schema_path)
   end
 
   @doc """
-  Load all the schema definition from the given export to the schema store.
-  This function has to be called before we start the export process
+  Load the schema files from the schema path to a given export
   """
-  def store_export_schemas(export) do
-    export.schemas |> Enum.each(&Schema.populate_schema_store(&1))
-  end
-
-  defp final_collection_list(export) do
-    collections = Mongo.collections()
-
-    cond do
-      Export.has_exclusives?(export) > 0 -> filter_exclusives(collections, export.exclusives)
-      Export.has_exclusions?(export) > 0 -> filter_exclusions(collections, export.exclusions)
-      true -> collections
-    end
-  end
-
-  ## good to loop over actual collections to avoid typos on exclusives
-  defp filter_exclusives(collections, exclusives) do
-    Enum.filter(collections, &Enum.member?(exclusives, &1))
-  end
-
-  ## good to loop over actual collections to avoid typos on exclusives
-  defp filter_exclusions(collections, exclusions) do
-    Enum.filter(collections, fn coll -> Enum.member?(exclusions, coll) == false end)
+  def load_schema_files(export, schema_path) do
+    Logger.info("Loading schema files from the path #{schema_path}....")
+    schemas = []
+    %{export | schemas: schemas}
   end
 
   @doc """
-  Generate  a default schema mapping for a collection based on the given collection name
+  Start the full export process for the given export
   """
-  def generate_schema_map(namespace, collection) do
-    Logger.info("Generating schema for namespace #{namespace} and collection #{collection}")
-
-    schema = %Schema{
-      ns: namespace,
-      collection: collection,
-      table: Macro.underscore(collection),
-      indexes: [],
-      primary_keys: [],
-      mappings: []
-    }
-
-    flat_document = Mongo.flat_collection(collection)
-
-    mappings = flat_document |> Map.keys() |> generate_mappings(flat_document)
-    %{schema | mappings: mappings}
-  end
-
-  defp generate_mappings(keys, flat_document) do
-    Enum.map(keys, &generate_field_mapping(&1, flat_document))
-  end
-
-  defp generate_field_mapping(key, flat_document) do
-    sql_type = extract_sql_type(key, flat_document)
-    sql_column = key_to_column_name(key)
-    field_mapping_for_key(key, sql_column, sql_type)
-  end
-
-  defp field_mapping_for_key(key = "_id", sql_column, sql_type) do
-    %Mapping{
-      mongo_key: key,
-      sql_column: sql_column,
-      sql_type: sql_type,
-      primary_key: true
-    }
-  end
-
-  defp field_mapping_for_key(key, sql_column, sql_type) do
-    %Mapping{
-      mongo_key: key,
-      sql_column: sql_column,
-      sql_type: sql_type
-    }
-  end
-
-  defp extract_sql_type(key, flat_document) do
-    val = Map.get(flat_document, key)
-    mongo_type = MS.Mongo.Type.typeof(val)
-    SQL.mongo_to_sql_type(mongo_type)
-  end
-
-  defp key_to_column_name(_ = "_id"), do: "id"
-
-  defp key_to_column_name(key) do
-    Macro.underscore(key) |> String.replace("/", "_")
+  def start_full_export(export) do
+    Export.populate_schema_store(export)
+    FullExport.trigger()
   end
 end

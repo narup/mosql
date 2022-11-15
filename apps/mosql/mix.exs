@@ -32,6 +32,7 @@ defmodule MS.MixProject do
       {:postgrex, ">= 0.0.0"},
       {:mongodb_driver, "~> 0.8.3"},
       {:broadway, "~> 1.0"},
+      {:decimal, "~> 2.0"},
       {:poison, "~> 5.0"},
       {:broadway_mongo, in_umbrella: true}
     ]

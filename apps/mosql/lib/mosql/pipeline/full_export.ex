@@ -9,6 +9,13 @@ defmodule MS.Pipeline.FullExport do
 
   require Logger
 
+  @doc """
+  Kick of the migration process
+  """
+  def trigger() do
+    FullExportProducer.trigger()
+  end
+
   def start_link(_opts) do
     {:ok, pid} =
       Broadway.start_link(__MODULE__,

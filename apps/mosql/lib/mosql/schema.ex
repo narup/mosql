@@ -18,9 +18,10 @@ defmodule MS.Schema do
   Represents the schema mapping between MongoDB collection and SQL table
   ns is the namespace
   """
+  @derive [Poison.Encoder]
   defstruct ns: "", collection: "", table: "", indexes: [], primary_keys: [], mappings: []
 
-  @schema_files_path Application.fetch_env!(:mosql, :schema_files_path)
+  @schema_files_path Application.compile_env!(:mosql, :schema_files_path)
 
   @typedoc """
   Schema type definition
@@ -189,6 +190,7 @@ defmodule MS.Schema.Mapping do
   @moduledoc """
   Represents the Mongo collection to SQL schema mapping
   """
+  @derive [Poison.Encoder]
   defstruct mongo_key: "", sql_column: "", sql_type: "", primary_key: false
 
   @typedoc """

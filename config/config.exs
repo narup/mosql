@@ -11,40 +11,9 @@ import Config
 
 alias MS.BroadwayMongo.Producer, as: MongoChangeStream
 
-mongo_user = System.get_env("MONGO_USER") || "MONGO_USER not set"
-mongo_password = System.get_env("MONGO_PASSWORD") || "MONGO_PASSWORD not set"
-
-mongo_db_name = System.get_env("MONGO_DBNAME") || "MONGO_DBNAME not set"
-mongo_replica_url = System.get_env("MONGO_REPLICA_URL") || "MONGO_REPLICA_URL not set"
-
 # Using an SRV URI also discovers all nodes of the deployment automatically
 # Example: mongodb+srv://pss-mongo-cluster.xpbte.mongodb.net/mosql
 mongo_srv_url = System.get_env("MONGO_SRV_URL") || "MONGO_SRV_URL not set"
-
-mongo_replica_name = System.get_env("MONGO_REPLICA_NAME") || "MONGO_REPLICA_NAME not set"
-
-# By default, the driver will discover the deployment's topology and will connect to
-# the replica set automatically, using either the seed list syntax or the URI syntax.
-# Assuming the deployment has nodes at hostname1.net:27017, hostname2.net:27017 and
-# hostname3.net:27017, either of the following invocations will discover the entire
-# deployment: connection options for MongoDB with all the host and replica info
-seed_mongo_opts = [
-  seeds: String.split(mongo_replica_url),
-  appname: "mosql",
-  database: mongo_db_name,
-  ssl: true,
-  ssl_opts: [
-    ciphers: ['AES256-GCM-SHA384'],
-    versions: [:"tlsv1.2"],
-    verify: :verify_none
-  ],
-  username: mongo_user,
-  password: mongo_password,
-  auth_source: "admin",
-  auth_mechanism: "MONGODB-CR",
-  set_name: mongo_replica_name,
-  pool_size: 3
-]
 
 # srv uri option
 url_mongo_opts = [
@@ -56,20 +25,19 @@ url_mongo_opts = [
     versions: [:"tlsv1.2"],
     verify: :verify_none
   ],
-  username: mongo_user,
-  password: mongo_password,
   auth_source: "admin",
   auth_mechanism: "MONGODB-CR",
-  pool_size: 3
+  pool_size: 3,
+  name: :mongo
 ]
 
 mongo_opts = url_mongo_opts
-
 config :mosql, mongo_opts: mongo_opts
+
 config :mosql, schema_files_path: "/Users/puran/projects/personal/mosql/test/fixtures"
 
-config :mosql,
-  producer_module: {MongoChangeStream, mongo_opts}
+# config :mosql,
+#   producer_module: {MongoChangeStream, mongo_opts}
 
 config :logger, :console,
   level: :info,

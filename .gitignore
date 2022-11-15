@@ -22,6 +22,8 @@ erl_crash.dump
 # Temporary files, for example, from tests.
 /tmp/
 
+schema/
+
 mosql.env
 STATUS.md
 producer_output.md
