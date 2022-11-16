@@ -18,8 +18,14 @@ defmodule MS.Schema do
   Represents the schema mapping between MongoDB collection and SQL table
   ns is the namespace
   """
-  @derive [Poison.Encoder]
-  defstruct ns: "", collection: "", table: "", indexes: [], primary_keys: [], mappings: []
+  @derive {Poison.Encoder, except: [:description]}
+  defstruct ns: "",
+            collection: "",
+            table: "",
+            indexes: [],
+            primary_keys: [],
+            mappings: [],
+            description: ""
 
   @schema_files_path Application.compile_env!(:mosql, :schema_files_path)
 
@@ -85,6 +91,18 @@ defmodule MS.Schema do
   end
 
   @doc """
+
+  """
+  def load_schema_files(namespace, schema_path) do
+    Path.wildcard("#{schema_path}/*.json") |> Enum.map(&load_schema_file(namespace, &1))
+  end
+
+  def load_schema_file(namespace, path) do
+    Logger.info("Loading schema file #{path} for namespace #{namespace}")
+    load_schema_file_from_path(path)
+  end
+
+  @doc """
   Creates a schema struct based on the collection schema definition, which is a JSON
   that defines the mapping between MongoDB collection and the SQL table definition
   """
@@ -95,27 +113,7 @@ defmodule MS.Schema do
       |> Path.absname()
 
     Logger.info("Schema file path for collection '#{collection}' is '#{schema_file_path}'")
-
-    try do
-      with {:ok, raw_json} <- File.read(schema_file_path),
-           mappings <- Poison.Parser.parse!(raw_json, %{keys: :atoms!}) do
-        schema = struct!(Schema, mappings)
-
-        Logger.info(
-          "Parsed schema for collection '#{collection}' from file path '#{schema_file_path}'"
-        )
-
-        struct_mappings = Enum.map(schema.mappings, &Mapping.to_struct(&1))
-        schema = %{schema | mappings: struct_mappings}
-        {:ok, schema}
-      else
-        {:error, :enoent} ->
-          {:error, "Schema file not found for collection '#{collection}'"}
-      end
-    rescue
-      Poison.ParseError ->
-        {:error, "JSON parsing failed for collection '#{collection}"}
-    end
+    load_schema_file_from_path(schema_file_path)
   end
 
   @doc """
@@ -181,6 +179,27 @@ defmodule MS.Schema do
 
   defp mapping_key(schema, field_name, field_value) do
     "#{schema.ns}.#{schema.collection}.#{field_name}.#{field_value}"
+  end
+
+  defp load_schema_file_from_path(schema_file_path) do
+    try do
+      with {:ok, raw_json} <- File.read(schema_file_path),
+           mappings <- Poison.Parser.parse!(raw_json, %{keys: :atoms!}) do
+        schema = struct!(Schema, mappings)
+
+        Logger.info("Parsed schema  from file path '#{schema_file_path}'")
+
+        struct_mappings = Enum.map(schema.mappings, &Mapping.to_struct(&1))
+        schema = %{schema | mappings: struct_mappings}
+        {:ok, schema}
+      else
+        {:error, :enoent} ->
+          {:error, "Error reading schema file at '#{schema_file_path}'"}
+      end
+    rescue
+      Poison.ParseError ->
+        {:error, "JSON parsing failed for schema at file path '#{schema_file_path}"}
+    end
   end
 end
 

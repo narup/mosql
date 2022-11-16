@@ -223,5 +223,4 @@ defmodule MS.Export do
   defp export_schema(path, schema) do
     :ok = File.write!("#{path}/#{schema.collection}.json", Poison.encode!(schema, pretty: true))
   end
-
 end

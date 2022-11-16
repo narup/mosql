@@ -18,7 +18,7 @@ defmodule MS.Application do
       {Mongo, mongo_opts},
       {Postgrex, postgres_opts},
       {MS.Store, []},
-      #{MS.Pipeline.ChangeStream, []},
+      # {MS.Pipeline.ChangeStream, []},
       {MS.Pipeline.FullExport, []}
     ]
 
