@@ -25,6 +25,7 @@ erl_crash.dump
 schema/
 
 .mnesia
+.DS_Store
 
 mosql.env
 STATUS.md
