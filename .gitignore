@@ -24,6 +24,8 @@ erl_crash.dump
 
 schema/
 
+.mnesia
+
 mosql.env
 STATUS.md
 producer_output.md

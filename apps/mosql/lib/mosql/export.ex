@@ -1,12 +1,12 @@
 defmodule MS.Export do
   alias __MODULE__
 
-  alias MS.Store
   alias MS.Schema
   alias MS.Schema.{SQL}
   alias MS.Mongo
 
   require Logger
+  require Memento
 
   @moduledoc """
   Represents the export definition and other configurations of the export
@@ -23,7 +23,7 @@ defmodule MS.Export do
   @typedoc """
   Export type definition
   """
-  @type t :: %__MODULE__{
+  @type t :: %Export{
           ns: String.t(),
           type: String.t(),
           connection_opts: term,
@@ -31,47 +31,70 @@ defmodule MS.Export do
         }
 
   @doc """
+  Set up the Mnesia Database for `MoSQL` on disk
+  This creates the necessary Schema, Database and
+  Tables for MoSQL export data on disk for the specified
+  erlang nodes so export definitions are persisted across
+  application restarts. Note that this call will stop
+  the `:mnesia` application. If no argument is provided,
+  the database is created for the current node.
+
+  Setup has to be performed from the console
+  ```
+  iex> MS.Export.setup!()
+  :ok
+  ```
+  *NOTE*: This needs to be done only once and not every time the
+  application starts. It also makes sense to create a helper
+  function or mix task to do this
+  """
+  @spec setup!(nodes :: list(node)) :: :ok
+  def setup!(nodes \\ [node()]) do
+    # Create the DB directory (if custom path given)
+    if path = Application.get_env(:mnesia, :dir) do
+      :ok = File.mkdir_p!(path)
+    end
+
+    # Create the Schema
+    Memento.stop()
+    Memento.Schema.create(nodes)
+    Memento.start()
+
+    MS.DB.Export.create(disc_copies: nodes)
+    MS.DB.Schema.create(disc_copies: nodes)
+  end
+
+  @doc """
   Creates a new export definition based on the given namespace and type
   namespace should be unique among all the exports saved in the system
   """
   def new(namespace, type, options \\ []) do
     case fetch(namespace, type) do
-      {:ok, nil} -> create(namespace, type, options)
+      [] -> create(namespace, type, options)
       _ -> {:error, :already_exists}
     end
   end
 
-  def create(namespace, type, options) do
-    defaults = [connection_opts: [], exclusions: [], exclusives: []]
-    merged_options = Keyword.merge(defaults, options) |> Enum.into(%{})
-
-    export = %Export{
-      ns: namespace,
-      type: type,
-      connection_opts: merged_options.connection_opts,
-      exclusions: merged_options.exclusions,
-      exclusives: merged_options.exclusives
-    }
-
-    {:ok, export}
-  end
-
-  def save(export) do
-    Store.set("#{export.ns}.export.#{export.type}", export)
+  @doc """
+  Save the export to the persistent store
+  """
+  def save(ex) do
+    MS.DB.Export.write(ex)
   end
 
   @doc """
   Fetch the saved export for the given namespace and type. Returns nil if there's none exists
   """
   def fetch(namespace, type) do
-    {:ok, Store.get_if_exists("#{namespace}.export.#{type}", nil)}
+    Logger.info("Fetching export data #{namespace}.#{type}")
+    MS.DB.Export.read(namespace, type)
   end
 
   @doc """
   Update the saved export for the given namespace and type
   """
   def update(namespace, type, export) do
-    Store.set("#{namespace}.export.#{type}", export)
+    IO.puts("fetch #{namespace} and #{type} #{export.ns}")
   end
 
   @doc """
@@ -135,6 +158,21 @@ defmodule MS.Export do
 
   defp has_exclusions?(export) do
     Enum.count(export.exclusions) > 0
+  end
+
+  defp create(namespace, type, options) do
+    defaults = [connection_opts: [], exclusions: [], exclusives: []]
+    merged_options = Keyword.merge(defaults, options) |> Enum.into(%{})
+
+    export = %Export{
+      ns: namespace,
+      type: type,
+      connection_opts: merged_options.connection_opts,
+      exclusions: merged_options.exclusions,
+      exclusives: merged_options.exclusives
+    }
+
+    {:ok, export}
   end
 
   ## Generates the final list of collection for the export based on the
@@ -222,5 +260,102 @@ defmodule MS.Export do
   # export single schema file
   defp export_schema(path, schema) do
     :ok = File.write!("#{path}/#{schema.collection}.json", Poison.encode!(schema, pretty: true))
+  end
+end
+
+defmodule MS.DB.Export do
+  use Memento.Table,
+    attributes: [:id, :ns, :type, :schemas, :connection_opts, :exclusions, :exclusives],
+    index: [:ns, :type],
+    type: :ordered_set,
+    autoincrement: true
+
+  def create(opts) do
+    Memento.Table.create!(__MODULE__, opts)
+  end
+
+  def write(ex) do
+    Memento.transaction!(fn ->
+      db_ex = to_db(ex)
+      db_ex = Memento.Query.write(db_ex)
+      write_schemas(db_ex.id, ex.schemas)
+    end)
+  end
+
+  def read(ns, type) do
+    query = [
+      {:==, :ns, ns},
+      {:==, :type, type}
+    ]
+
+    Memento.transaction!(fn ->
+      Memento.Query.select(MS.DB.Export, query)
+    end)
+  end
+
+  defp write_schemas(_, _ = []) do
+    []
+  end
+
+  defp write_schemas(export_id, schemas) do
+    Enum.each(schemas, &MS.DB.Schema.write(export_id, &1))
+  end
+
+  defp to_db(ex) do
+    %__MODULE__{
+      ns: ex.ns,
+      type: ex.type,
+      connection_opts: ex.connection_opts,
+      exclusions: ex.exclusions,
+      exclusives: ex.exclusives
+    }
+  end
+end
+
+defmodule MS.DB.Schema do
+  use Memento.Table,
+    attributes: [
+      :id,
+      :ns,
+      :collection,
+      :table,
+      :indexes,
+      :primary_keys,
+      :mappings,
+      :description,
+      :export
+    ],
+    index: [:export],
+    type: :ordered_set,
+    autoincrement: true
+
+  def create(opts) do
+    Memento.Table.create!(__MODULE__, opts)
+  end
+
+  def write(export_id, schema) do
+    Memento.transaction!(fn ->
+      db_s = to_db(export_id, schema)
+      Memento.Query.write(db_s)
+    end)
+  end
+
+  def read(export_id) do
+    Memento.transaction!(fn ->
+      Memento.Query.select(Movie, {:==, :export, export_id})
+    end)
+  end
+
+  defp to_db(export_id, schema) do
+    %__MODULE__{
+      ns: schema.ns,
+      collection: schema.collection,
+      table: schema.table,
+      indexes: schema.indexes,
+      primary_keys: schema.primary_keys,
+      mappings: schema.mappings,
+      description: schema.description,
+      export: export_id
+    }
   end
 end

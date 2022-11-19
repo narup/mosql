@@ -194,7 +194,7 @@ defmodule MS.Schema do
         {:ok, schema}
       else
         {:error, :enoent} ->
-          {:error, "Error reading schema file at '#{schema_file_path}'"}
+          {:error, "No such file or directory to read from '#{schema_file_path}'"}
       end
     rescue
       Poison.ParseError ->

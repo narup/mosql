@@ -21,8 +21,12 @@ defmodule MS.MoSQL do
        * `:exclusions` - the list of collections to exclude from the export
        * `:exclusives` - the list of collections that must be included
 
-    2. Generate export schema definition files
-      MS.MoSQL.generate_schema_files(export, schema_path)
+    2. Generate export schema definitions and export to a file system
+      ex = MS.MoSQL.generate_default_schemas(export, schema_path)
+      Export.to_json(ex, schema_export_path)
+
+    3. Reload the (updated) schema files from the path to the export
+      MS.MoSQL.reload_schema_files(export, schema_path)
 
     3. Trigger full export
       MS.MoSQL.start_full_export(export)
@@ -44,15 +48,13 @@ defmodule MS.MoSQL do
   end
 
   @doc """
-  Generate the given export schemas with JSON schema definition files in a given
-  path. These schema definitions can be modified to customize the export at the
+  Generates the default export schema definitions for the given export.
+  These schema definitions can be modified to customize the export at the
   collection and field level
   """
-  def generate_schema_files(export, schema_path) do
+  def generate_default_schemas(export) do
     schemas = Export.generate_schema_mappings(export)
-
-    export = %{export | schemas: schemas}
-    Export.to_json(export, schema_path)
+    %{export | schemas: schemas}
   end
 
   @doc """
@@ -64,6 +66,7 @@ defmodule MS.MoSQL do
     Logger.info("Loading schema files from the path #{schema_path}....")
     schemas = Schema.load_schema_files(export.ns, schema_path)
 
+    # if any schema failed to load return the error
     if has_schema_load_errors(schemas) do
       {:error, schema_load_errors(schemas)}
     else
@@ -92,6 +95,7 @@ defmodule MS.MoSQL do
   end
 
   defp schema_load_error({:error, _}), do: true
+  defp schema_load_error({:ok, _}), do: false
 
   defp no_error_schema({:ok, _}), do: true
   defp no_error_schema({:error, _}), do: false
