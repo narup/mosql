@@ -122,14 +122,15 @@ defmodule MS.Schema do
   Load the export schemas from the persistence store based on the export id
   """
   def load_export_schemas(export_id) do
+    Logger.info("Fetching schemas for export id #{export_id}")
     MS.DB.Schema.read_all(export_id) |> fetch_schema_results()
   end
 
   defp fetch_schema_results(_ = []), do: {:error, :not_found}
 
   defp fetch_schema_results(result) do
-    ex = Enum.map(result, &from_db(&1)) |> Enum.at(0)
-    {:ok, ex}
+    schemas = Enum.map(result, &from_db(&1))
+    {:ok, schemas}
   end
 
   defp from_db(db_schema) do

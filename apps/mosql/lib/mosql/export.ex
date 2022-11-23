@@ -94,7 +94,7 @@ defmodule MS.Export do
   defp fetch_export_results(_ = []), do: {:error, :not_found}
 
   defp fetch_export_results(result) do
-    ex = Enum.map(result, &from_db(&1)) |> Enum.at(0)
+    ex = Enum.map(result, &from_db(&1)) |> Enum.at(1)
     {:ok, ex}
   end
 
@@ -107,15 +107,11 @@ defmodule MS.Export do
       exclusions: db_ex.exclusions
     }
 
-    schemas = MS.DB.Schema.read_all(db_ex.id) |> fetch_schema_results()
-    %{ex | schemas: schemas}
-  end
-
-  defp fetch_schema_results(_ = []), do: {:error, :not_found}
-
-  defp fetch_schema_results(result) do
-    ex = Enum.map(result, &from_db(&1)) |> Enum.at(0)
-    {:ok, ex}
+    schemas = MS.Schema.load_export_schemas(db_ex.id)
+    case schemas do
+      {:error, :not_found} -> %{ex | schemas: []}
+      {:ok, schemas} -> %{ex | schemas: schemas}
+    end
   end
 
   @doc """
