@@ -2,7 +2,7 @@ defmodule MS.Export do
   alias __MODULE__
 
   alias MS.Schema
-  alias MS.Schema.{SQL}
+  alias MS.SQL
   alias MS.Mongo
 
   require Logger
@@ -70,8 +70,8 @@ defmodule MS.Export do
   """
   def new(namespace, type, options \\ []) do
     case fetch(namespace, type) do
-      [] -> create(namespace, type, options)
-      _ -> {:error, :already_exists}
+      {:error, :not_found} -> create(namespace, type, options)
+      {:ok, _} -> {:error, :already_exists}
     end
   end
 
@@ -83,11 +83,39 @@ defmodule MS.Export do
   end
 
   @doc """
-  Fetch the saved export for the given namespace and type. Returns nil if there's none exists
+  Fetch the saved export for the given namespace and type.
   """
+  @spec fetch(String.t(), String.t()) :: {:ok, %MS.Export{}} | {:error, :not_found}
   def fetch(namespace, type) do
     Logger.info("Fetching export data #{namespace}.#{type}")
-    MS.DB.Export.read(namespace, type)
+    MS.DB.Export.read(namespace, type) |> fetch_export_results()
+  end
+
+  defp fetch_export_results(_ = []), do: {:error, :not_found}
+
+  defp fetch_export_results(result) do
+    ex = Enum.map(result, &from_db(&1)) |> Enum.at(0)
+    {:ok, ex}
+  end
+
+  defp from_db(db_ex) do
+    ex = %Export{
+      ns: db_ex.ns,
+      type: db_ex.type,
+      connection_opts: db_ex.connection_opts,
+      exclusives: db_ex.exclusives,
+      exclusions: db_ex.exclusions
+    }
+
+    schemas = MS.DB.Schema.read_all(db_ex.id) |> fetch_schema_results()
+    %{ex | schemas: schemas}
+  end
+
+  defp fetch_schema_results(_ = []), do: {:error, :not_found}
+
+  defp fetch_schema_results(result) do
+    ex = Enum.map(result, &from_db(&1)) |> Enum.at(0)
+    {:ok, ex}
   end
 
   @doc """
@@ -264,8 +292,10 @@ defmodule MS.Export do
 end
 
 defmodule MS.DB.Export do
+  alias MS.DB.Schema
+
   use Memento.Table,
-    attributes: [:id, :ns, :type, :schemas, :connection_opts, :exclusions, :exclusives],
+    attributes: [:id, :ns, :type, :connection_opts, :exclusions, :exclusives],
     index: [:ns, :type],
     type: :ordered_set,
     autoincrement: true
@@ -298,7 +328,7 @@ defmodule MS.DB.Export do
   end
 
   defp write_schemas(export_id, schemas) do
-    Enum.each(schemas, &MS.DB.Schema.write(export_id, &1))
+    Enum.each(schemas, &Schema.write(export_id, &1))
   end
 
   defp to_db(ex) do
@@ -308,54 +338,6 @@ defmodule MS.DB.Export do
       connection_opts: ex.connection_opts,
       exclusions: ex.exclusions,
       exclusives: ex.exclusives
-    }
-  end
-end
-
-defmodule MS.DB.Schema do
-  use Memento.Table,
-    attributes: [
-      :id,
-      :ns,
-      :collection,
-      :table,
-      :indexes,
-      :primary_keys,
-      :mappings,
-      :description,
-      :export
-    ],
-    index: [:export],
-    type: :ordered_set,
-    autoincrement: true
-
-  def create(opts) do
-    Memento.Table.create!(__MODULE__, opts)
-  end
-
-  def write(export_id, schema) do
-    Memento.transaction!(fn ->
-      db_s = to_db(export_id, schema)
-      Memento.Query.write(db_s)
-    end)
-  end
-
-  def read(export_id) do
-    Memento.transaction!(fn ->
-      Memento.Query.select(Movie, {:==, :export, export_id})
-    end)
-  end
-
-  defp to_db(export_id, schema) do
-    %__MODULE__{
-      ns: schema.ns,
-      collection: schema.collection,
-      table: schema.table,
-      indexes: schema.indexes,
-      primary_keys: schema.primary_keys,
-      mappings: schema.mappings,
-      description: schema.description,
-      export: export_id
     }
   end
 end

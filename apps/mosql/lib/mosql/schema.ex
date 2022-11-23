@@ -1,7 +1,9 @@
 defmodule MS.Schema do
   alias __MODULE__
+  alias Memento.Schema
   alias MS.Schema.Mapping
   alias MS.Store
+  alias MS.DB.Schema
 
   require Logger
 
@@ -117,6 +119,31 @@ defmodule MS.Schema do
   end
 
   @doc """
+  Load the export schemas from the persistence store based on the export id
+  """
+  def load_export_schemas(export_id) do
+    MS.DB.Schema.read_all(export_id) |> fetch_schema_results()
+  end
+
+  defp fetch_schema_results(_ = []), do: {:error, :not_found}
+
+  defp fetch_schema_results(result) do
+    ex = Enum.map(result, &from_db(&1)) |> Enum.at(0)
+    {:ok, ex}
+  end
+
+  defp from_db(db_schema) do
+    %MS.Schema{
+      ns: db_schema.ns,
+      collection: db_schema.collection,
+      table: db_schema.table,
+      indexes: db_schema.indexes,
+      primary_keys: db_schema.primary_keys,
+      description: db_schema.description
+    }
+  end
+
+  @doc """
   store the schema mapping as key value in the Schema store
     <namespace>.<collection>.table = <value>
     <namespace>.<collection>.columns = [values...]
@@ -227,148 +254,50 @@ defmodule MS.Schema.Mapping do
   end
 end
 
-defmodule MS.Schema.SQL do
-  require Logger
+defmodule MS.DB.Schema do
+  use Memento.Table,
+    attributes: [
+      :id,
+      :ns,
+      :collection,
+      :table,
+      :indexes,
+      :primary_keys,
+      :mappings,
+      :description,
+      :export
+    ],
+    index: [:export],
+    type: :ordered_set,
+    autoincrement: true
 
-  alias MS.Schema
-
-  @doc """
-    Generates a SQL string for creating a table
-
-    CREATE TABLE [IF NOT EXISTS] table_name (
-      column1 datatype(length) column_contraint,
-      column2 datatype(length) column_contraint,
-      column3 datatype(length) column_contraint,
-      ...
-      table_constraints
-    );
-
-  """
-  def create_table_with_columns(schema) do
-    Logger.info("Generating table creation SQL for #{schema.ns}.#{schema.collection}")
-
-    columns =
-      schema
-      |> Schema.columns()
-      |> Enum.map(&column_definition(schema, &1))
-      |> Enum.join("\n\t,")
-
-    ~s(
-      CREATE TABLE IF NOT EXISTS #{schema.ns}.#{table_name(schema)} (
-         #{columns}
-      \);
-    )
+  def create(opts) do
+    Memento.Table.create!(__MODULE__, opts)
   end
 
-  @doc """
-    Generates a SQL string for creating a table if not exists
-  """
-  def create_table_if_not_exists(schema) do
-    table_name = table_name(schema)
-    "CREATE TABLE IF NOT EXISTS #{schema.ns}.#{table_name}"
+  def write(export_id, schema) do
+    Memento.transaction!(fn ->
+      db_s = to_db(export_id, schema)
+      Memento.Query.write(db_s)
+    end)
   end
 
-  @doc """
-    Generates a SQL string for checking if a table exists in the schema
-  """
-  def table_exists(schema) do
-    table_name = table_name(schema)
-    ~s(
-        SELECT EXISTS (
-          SELECT table_name FROM information_schema.tables
-          WHERE table_schema = '#{schema.ns}' AND table_name = '#{table_name}'
-        \)
-      )
+  def read_all(export_id) do
+    Memento.transaction!(fn ->
+      Memento.Query.select(MS.DB.Schema, {:==, :export, export_id})
+    end)
   end
 
-  @doc """
-  SQL for drop table
-  """
-  def drop_table(schema) do
-    "DROP TABLE IF EXISTS #{table_name(schema)}"
-  end
-
-  @doc """
-  SQL for truncate table
-  """
-  def truncate_table(schema) do
-    "TRUNCATE TABLE #{table_name(schema)}"
-  end
-
-  @doc """
-  SQL for adding a new column if it does not exists
-  """
-  def create_column_if_not_exists(schema, column) do
-    table_name = table_name(schema)
-    ~s(
-        ALTER TABLE #{schema.ns}.#{table_name} ADD COLUMN
-        IF NOT EXISTS #{column_definition(schema, column)}
-    )
-  end
-
-  @doc """
-  Generates upsert SQL statement for a given schema and a mongo document
-   INSERT INTO <table_name> (column1, column2...)
-    VALUES (value1, value2...)
-    ON CONFLICT (primary_key_field) DO UPDATE SET column = EXCLUDED.column...;
-  """
-  def upsert_document(schema, mongo_document \\ %{}) do
-    table_name = table_name(schema)
-    primary_key = Schema.primary_key(schema)
-
-    column_list = schema |> Schema.columns()
-
-    columns = Enum.join(column_list, "\n\t,")
-
-    update_columns =
-      column_list
-      |> Enum.filter(&(!Schema.is_primary_key?(schema, &1)))
-      |> Enum.map(&"#{&1} = EXCLUDED.#{&1}")
-      |> Enum.join(", ")
-
-    values = column_values(schema, column_list, mongo_document)
-
-    ~s(
-      INSERT INTO #{schema.ns}.#{table_name} (
-         #{columns}
-      \) VALUES (
-        #{values}
-      \) ON CONFLICT ( #{primary_key} \) DO UPDATE SET #{update_columns};
-    )
-  end
-
-  @type_map %{
-    "string" => "text",
-    "boolean" => "boolean",
-    "integer" => "integer",
-    "float" => "numeric",
-    "datetime" => "timestamp with time zone"
-  }
-
-  def mongo_to_sql_type(mongo_type) do
-    Map.get(@type_map, mongo_type)
-  end
-
-  defp column_definition(schema, column) do
-    type = Schema.type(schema, column) |> String.upcase()
-
-    if Schema.is_primary_key?(schema, column) do
-      "#{column} #{type} PRIMARY KEY"
-    else
-      "#{column} #{type}"
-    end
-  end
-
-  defp column_values(schema, columns, mongo_document) do
-    Enum.map(columns, &column_value(schema, &1, mongo_document)) |> Enum.join(", ")
-  end
-
-  defp column_value(schema, column, mongo_document) do
-    mongo_key = Schema.mongo_key(schema, column)
-    "'#{Map.get(mongo_document, mongo_key)}'"
-  end
-
-  defp table_name(schema) do
-    Schema.table_name(schema)
+  defp to_db(export_id, schema) do
+    %__MODULE__{
+      ns: schema.ns,
+      collection: schema.collection,
+      table: schema.table,
+      indexes: schema.indexes,
+      primary_keys: schema.primary_keys,
+      mappings: schema.mappings,
+      description: schema.description,
+      export: export_id
+    }
   end
 end

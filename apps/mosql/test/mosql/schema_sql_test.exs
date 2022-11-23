@@ -2,7 +2,7 @@ defmodule MS.SchemaSQLTest do
   use ExUnit.Case, async: true
 
   alias MS.Store
-  alias MS.Schema.SQL
+  alias MS.SQL
 
   require Logger
 
