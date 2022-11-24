@@ -50,11 +50,25 @@ defmodule MS.MoSQL do
   @doc """
   Generates the default export schema definitions for the given export.
   These schema definitions can be modified to customize the export at the
-  collection and field level
+  collection and field level. It takes additional opts to provide `export_path`
+  and `persist`
+       * `:export_path` - export the schema as JSON files on the given export path
+       * `:persist` - persist export definition in the MoSQL internal store
+
+  MoSQL internal store is a mnesia based disk store. See `MS.Export.setup!()` for
+  more details
   """
-  def generate_default_schemas(export) do
+  def generate_default_schemas(export, opts \\ []) do
     schemas = Export.generate_schema_mappings(export)
-    %{export | schemas: schemas}
+    ex = %{export | schemas: schemas}
+
+    if Keyword.has_key?(opts, :export_path) do
+      Export.to_json(ex, Keyword.get(opts, :export_path))
+    end
+
+    if Keyword.has_key?(opts, :persist) do
+      Export.save(ex)
+    end
   end
 
   @doc """

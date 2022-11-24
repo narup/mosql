@@ -10,7 +10,9 @@ defmodule MS.Export do
 
   @moduledoc """
   Represents the export definition and other configurations of the export
-  `ns` namespace has to be unique across the system
+  `ns` namespace has to be unique across the system.
+
+  if `db_name` is not provided then `namespace` value is used as a db name
 
   `exclusions` optional list of collections to exclude from the export
 
@@ -18,7 +20,7 @@ defmodule MS.Export do
   list is ignored.
   """
   @derive [Poison.Encoder]
-  defstruct ns: "", type: "", schemas: [], connection_opts: [], exclusions: [], exclusives: []
+  defstruct ns: "", type: "", db_name: "", schemas: [], exclusions: [], exclusives: []
 
   @typedoc """
   Export type definition
@@ -26,8 +28,10 @@ defmodule MS.Export do
   @type t :: %Export{
           ns: String.t(),
           type: String.t(),
-          connection_opts: term,
-          schemas: term
+          db_name: String.t(),
+          schemas: term,
+          exclusions: term,
+          exclusives: term
         }
 
   @doc """
@@ -61,7 +65,6 @@ defmodule MS.Export do
     Memento.start()
 
     MS.DB.Export.create(disc_copies: nodes)
-    MS.DB.Schema.create(disc_copies: nodes)
   end
 
   @doc """
@@ -94,24 +97,19 @@ defmodule MS.Export do
   defp fetch_export_results(_ = []), do: {:error, :not_found}
 
   defp fetch_export_results(result) do
-    ex = Enum.map(result, &from_db(&1)) |> Enum.at(1)
+    ex = Enum.map(result, &from_db(&1)) |> Enum.at(0)
     {:ok, ex}
   end
 
   defp from_db(db_ex) do
-    ex = %Export{
+    %Export{
       ns: db_ex.ns,
       type: db_ex.type,
-      connection_opts: db_ex.connection_opts,
+      db_name: db_ex.db_name,
+      schemas: db_ex.schemas,
       exclusives: db_ex.exclusives,
       exclusions: db_ex.exclusions
     }
-
-    schemas = MS.Schema.load_export_schemas(db_ex.id)
-    case schemas do
-      {:error, :not_found} -> %{ex | schemas: []}
-      {:ok, schemas} -> %{ex | schemas: schemas}
-    end
   end
 
   @doc """
@@ -185,13 +183,16 @@ defmodule MS.Export do
   end
 
   defp create(namespace, type, options) do
-    defaults = [connection_opts: [], exclusions: [], exclusives: []]
+    defaults = [db_name: "", connection_opts: [], schemas: [], exclusions: [], exclusives: []]
     merged_options = Keyword.merge(defaults, options) |> Enum.into(%{})
+
+    db_name = if merged_options.db_name == "", do: namespace, else: merged_options.db_name
 
     export = %Export{
       ns: namespace,
       type: type,
-      connection_opts: merged_options.connection_opts,
+      db_name: db_name,
+      schemas: merged_options.schemas,
       exclusions: merged_options.exclusions,
       exclusives: merged_options.exclusives
     }
@@ -288,10 +289,8 @@ defmodule MS.Export do
 end
 
 defmodule MS.DB.Export do
-  alias MS.DB.Schema
-
   use Memento.Table,
-    attributes: [:id, :ns, :type, :connection_opts, :exclusions, :exclusives],
+    attributes: [:id, :ns, :type, :db_name, :schemas, :exclusions, :exclusives],
     index: [:ns, :type],
     type: :ordered_set,
     autoincrement: true
@@ -303,8 +302,7 @@ defmodule MS.DB.Export do
   def write(ex) do
     Memento.transaction!(fn ->
       db_ex = to_db(ex)
-      db_ex = Memento.Query.write(db_ex)
-      write_schemas(db_ex.id, ex.schemas)
+      Memento.Query.write(db_ex)
     end)
   end
 
@@ -319,19 +317,12 @@ defmodule MS.DB.Export do
     end)
   end
 
-  defp write_schemas(_, _ = []) do
-    []
-  end
-
-  defp write_schemas(export_id, schemas) do
-    Enum.each(schemas, &Schema.write(export_id, &1))
-  end
-
   defp to_db(ex) do
     %__MODULE__{
       ns: ex.ns,
       type: ex.type,
-      connection_opts: ex.connection_opts,
+      db_name: ex.db_name,
+      schemas: ex.schemas,
       exclusions: ex.exclusions,
       exclusives: ex.exclusives
     }

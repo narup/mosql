@@ -7,6 +7,7 @@ defmodule MS.Schema do
 
   require Logger
 
+  @name "name"
   @table "table"
   @columns "columns"
   @sql_column "column"
@@ -22,6 +23,7 @@ defmodule MS.Schema do
   """
   @derive {Poison.Encoder, except: [:description]}
   defstruct ns: "",
+            name: "",
             collection: "",
             table: "",
             indexes: [],
@@ -36,11 +38,13 @@ defmodule MS.Schema do
   """
   @type t :: %__MODULE__{
           ns: String.t(),
+          name: String.t(),
           collection: String.t(),
           table: String.t(),
           indexes: term,
           primary_keys: term,
-          mappings: term
+          mappings: term,
+          description: String.t()
         }
 
   @doc """
@@ -48,6 +52,13 @@ defmodule MS.Schema do
   """
   def saved_mapping(schema) do
     mapping_key(schema, @mapping) |> Store.get()
+  end
+
+  @doc """
+  Returns the schema name for a schema mapping definition
+  """
+  def schema_name(schema) do
+    mapping_key(schema, @name) |> Store.get()
   end
 
   @doc """
@@ -119,33 +130,8 @@ defmodule MS.Schema do
   end
 
   @doc """
-  Load the export schemas from the persistence store based on the export id
-  """
-  def load_export_schemas(export_id) do
-    Logger.info("Fetching schemas for export id #{export_id}")
-    MS.DB.Schema.read_all(export_id) |> fetch_schema_results()
-  end
-
-  defp fetch_schema_results(_ = []), do: {:error, :not_found}
-
-  defp fetch_schema_results(result) do
-    schemas = Enum.map(result, &from_db(&1))
-    {:ok, schemas}
-  end
-
-  defp from_db(db_schema) do
-    %MS.Schema{
-      ns: db_schema.ns,
-      collection: db_schema.collection,
-      table: db_schema.table,
-      indexes: db_schema.indexes,
-      primary_keys: db_schema.primary_keys,
-      description: db_schema.description
-    }
-  end
-
-  @doc """
   store the schema mapping as key value in the Schema store
+    <namespace>.<collection>.name = <value>
     <namespace>.<collection>.table = <value>
     <namespace>.<collection>.columns = [values...]
     <namespace>.<collection>.<mongo_key>.indexes = [values...]
@@ -158,7 +144,10 @@ defmodule MS.Schema do
     # Store the whole mapping first in the store
     mapping_key(schema, @mapping) |> Store.set(schema)
 
-    mapping_key(schema, @table) |> Store.set("#{schema.table}")
+    schema_name = if schema.name == "", do: "public", else: schema.name
+    mapping_key(schema, @name) |> Store.set(schema_name)
+
+    mapping_key(schema, @table) |> Store.set(schema.table)
     mapping_key(schema, @columns) |> Store.set([])
 
     if Enum.count(schema.primary_keys) > 0 do
@@ -252,53 +241,5 @@ defmodule MS.Schema.Mapping do
 
   def to_struct(values) do
     struct!(Mapping, values)
-  end
-end
-
-defmodule MS.DB.Schema do
-  use Memento.Table,
-    attributes: [
-      :id,
-      :ns,
-      :collection,
-      :table,
-      :indexes,
-      :primary_keys,
-      :mappings,
-      :description,
-      :export
-    ],
-    index: [:export],
-    type: :ordered_set,
-    autoincrement: true
-
-  def create(opts) do
-    Memento.Table.create!(__MODULE__, opts)
-  end
-
-  def write(export_id, schema) do
-    Memento.transaction!(fn ->
-      db_s = to_db(export_id, schema)
-      Memento.Query.write(db_s)
-    end)
-  end
-
-  def read_all(export_id) do
-    Memento.transaction!(fn ->
-      Memento.Query.select(MS.DB.Schema, {:==, :export, export_id})
-    end)
-  end
-
-  defp to_db(export_id, schema) do
-    %__MODULE__{
-      ns: schema.ns,
-      collection: schema.collection,
-      table: schema.table,
-      indexes: schema.indexes,
-      primary_keys: schema.primary_keys,
-      mappings: schema.mappings,
-      description: schema.description,
-      export: export_id
-    }
   end
 end
