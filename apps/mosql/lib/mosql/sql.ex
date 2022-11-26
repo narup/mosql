@@ -38,6 +38,14 @@ defmodule MS.SQL do
     Logger.info("Created table #{schema.table}")
   end
 
+  # Creates a current table definition map for each column
+  # and column attribtues for an easier lookup
+  # Format:
+  # [
+  #   %{ column_name_1 => %{column attributes map...} },
+  #   %{ column_name_2 => %{colum attributes map...} }
+  #   ...
+  # ]
   def table_definition(db, table) do
     table_definition_sql(db, table)
     |> Postgres.query!()
