@@ -12,15 +12,13 @@ defmodule MS.Export do
   Represents the export definition and other configurations of the export
   `ns` namespace has to be unique across the system.
 
-  if `db_name` is not provided then `namespace` value is used as a db name
-
   `exclusions` optional list of collections to exclude from the export
 
   `exclusives` optional list of only collections to export. if only list is present exclusion
   list is ignored.
   """
   @derive [Poison.Encoder]
-  defstruct ns: "", type: "", db_name: "", schemas: [], exclusions: [], exclusives: []
+  defstruct ns: "", type: "", schemas: [], exclusions: [], exclusives: []
 
   @typedoc """
   Export type definition
@@ -28,7 +26,6 @@ defmodule MS.Export do
   @type t :: %Export{
           ns: String.t(),
           type: String.t(),
-          db_name: String.t(),
           schemas: term,
           exclusions: term,
           exclusives: term
@@ -105,7 +102,6 @@ defmodule MS.Export do
     %Export{
       ns: db_ex.ns,
       type: db_ex.type,
-      db_name: db_ex.db_name,
       schemas: db_ex.schemas,
       exclusives: db_ex.exclusives,
       exclusions: db_ex.exclusions
@@ -183,15 +179,12 @@ defmodule MS.Export do
   end
 
   defp create(namespace, type, options) do
-    defaults = [db_name: "", connection_opts: [], schemas: [], exclusions: [], exclusives: []]
+    defaults = [connection_opts: [], schemas: [], exclusions: [], exclusives: []]
     merged_options = Keyword.merge(defaults, options) |> Enum.into(%{})
-
-    db_name = if merged_options.db_name == "", do: namespace, else: merged_options.db_name
 
     export = %Export{
       ns: namespace,
       type: type,
-      db_name: db_name,
       schemas: merged_options.schemas,
       exclusions: merged_options.exclusions,
       exclusives: merged_options.exclusives
@@ -290,7 +283,7 @@ end
 
 defmodule MS.DB.Export do
   use Memento.Table,
-    attributes: [:id, :ns, :type, :db_name, :schemas, :exclusions, :exclusives],
+    attributes: [:id, :ns, :type, :schemas, :exclusions, :exclusives],
     index: [:ns, :type],
     type: :ordered_set,
     autoincrement: true
@@ -321,7 +314,6 @@ defmodule MS.DB.Export do
     %__MODULE__{
       ns: ex.ns,
       type: ex.type,
-      db_name: ex.db_name,
       schemas: ex.schemas,
       exclusions: ex.exclusions,
       exclusives: ex.exclusives

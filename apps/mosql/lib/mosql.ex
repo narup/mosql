@@ -35,10 +35,19 @@ defmodule MS.MoSQL do
   alias MS.Pipeline.FullExport
   alias MS.Export
   alias MS.Schema
+  alias MS.SQL
 
   require Logger
 
   @type_postgres "postgres"
+
+  @doc """
+  Perform one time setup operation for MoSQL to initialize export
+  database and other things
+  """
+  def setup do
+    Export.setup!()
+  end
 
   @doc """
   creates the complete postgres type export definition for the given namespace
@@ -93,6 +102,7 @@ defmodule MS.MoSQL do
   """
   def start_full_export(export) do
     Export.populate_schema_store(export)
+    SQL.prepare(export)
     FullExport.trigger()
   end
 

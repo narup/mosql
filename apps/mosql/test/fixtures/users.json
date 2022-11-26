@@ -2,8 +2,13 @@
     "ns": "mosql",
     "collection": "users",
     "table": "tbl_user",
-    "indexes": ["email"],
-    "primary_keys": ["id"],
+    "name": "schema",
+    "indexes": [
+        "email"
+    ],
+    "primary_keys": [
+        "id"
+    ],
     "mappings": [
         {
             "mongo_key": "_id",

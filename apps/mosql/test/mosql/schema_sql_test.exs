@@ -11,6 +11,7 @@ defmodule MS.SchemaSQLTest do
     Logger.info("schema test PID #{inspect(store)}")
     %{store: store}
 
+    Store.set("mosql.users.name", "schema_users")
     Store.set("mosql.users.table", "tbl_user")
     Store.set("mosql.users.primary_keys", ["id"])
     Store.set("mosql.users.tbl_user.primary_key", "id")
@@ -67,19 +68,19 @@ defmodule MS.SchemaSQLTest do
   test "test SQL queries", %{store: store, schema: schema} do
     Logger.info("Schema store pid #{inspect(store)}")
 
-    create_all_sql = SQL.create_table_with_columns(schema)
+    create_all_sql = SQL.create_table_with_columns_sql(schema)
     Logger.info("Create table with columns SQL:\n #{create_all_sql}")
 
-    create_sql = SQL.create_table_if_not_exists(schema)
+    create_sql = SQL.create_table_if_not_exists_sql(schema)
     Logger.info("Create table if not exists SQL:\n #{create_sql}")
 
-    table_exists_sql = SQL.table_exists(schema)
+    table_exists_sql = SQL.table_exists_sql(schema)
     Logger.info("Check if table exists SQL:\n #{table_exists_sql}")
 
-    column_sql = SQL.create_column_if_not_exists(schema, "full_name")
+    column_sql = SQL.create_column_if_not_exists_sql(schema, "full_name")
     Logger.info("Add column SQL:\n #{column_sql}")
 
-    upsert_sql = SQL.upsert_document(schema, @user_flat_document)
+    upsert_sql = SQL.upsert_document_sql(schema, @user_flat_document)
     Logger.info("Upsert data SQL:\n #{upsert_sql}")
   end
 end

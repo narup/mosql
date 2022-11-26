@@ -1,9 +1,7 @@
 defmodule MS.Schema do
   alias __MODULE__
-  alias Memento.Schema
   alias MS.Schema.Mapping
   alias MS.Store
-  alias MS.DB.Schema
 
   require Logger
 

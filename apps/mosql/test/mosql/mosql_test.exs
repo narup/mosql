@@ -5,7 +5,7 @@ defmodule MS.MSTest do
   alias MS.Store
 
   require Logger
-  doctest MS
+  doctest MS.MoSQL
 
   setup do
     {:ok, store} = start_supervised(Store)

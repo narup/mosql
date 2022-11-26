@@ -1,7 +1,10 @@
 {
     "collection": "users",
     "table": "user",
-    "indexes": ["email"],
+    "name": "schema",
+    "indexes": [
+        "email"
+    ],
     "mappings": [
         {
             "mongo_key": "_id",

@@ -2,7 +2,10 @@
     "ns": "mosql",
     "collection": "profiles",
     "table": "user_profile",
-    "indexes": ["email"],
+    "name": "user_schema",
+    "indexes": [
+        "email"
+    ],
     "mappings": [
         {
             "mongo_key": "_id",
