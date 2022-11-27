@@ -77,7 +77,7 @@ defmodule MS.SchemaSQLTest do
     table_exists_sql = SQL.table_exists_sql(schema)
     Logger.info("Check if table exists SQL:\n #{table_exists_sql}")
 
-    column_sql = SQL.create_column_if_not_exists_sql(schema, "full_name")
+    column_sql = SQL.add_column_if_not_exists_sql(schema, "full_name")
     Logger.info("Add column SQL:\n #{column_sql}")
 
     upsert_sql = SQL.upsert_document_sql(schema, @user_flat_document)

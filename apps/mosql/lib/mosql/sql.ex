@@ -3,11 +3,7 @@ defmodule MS.SQL do
 
   alias MS.Schema
   alias MS.Postgres
-
-  @alter_add_column "add_column"
-  @alter_drop_column "drop_column"
-  @alter_data_type "data_type"
-  @alter_add_not_null "add_not_null"
+  alias MS.Export
 
   @doc """
   Prepare the SQL DB for export
@@ -17,7 +13,8 @@ defmodule MS.SQL do
   """
   def prepare(export) do
     try do
-      create_tables(export.schemas)
+      create_tables(export)
+      alter_tables(export)
     rescue
       e in RuntimeError ->
         {:error, e.message}
@@ -28,14 +25,54 @@ defmodule MS.SQL do
     end
   end
 
-  defp create_tables(schemas) do
-    Enum.each(schemas, &create_table(&1))
+  defp create_tables(export) do
+    Enum.each(export.schemas, &create_table(&1))
   end
 
   defp create_table(schema) do
     Logger.info("Creating table #{schema.table}")
     create_table_with_columns_sql(schema) |> Postgres.query!()
     Logger.info("Created table #{schema.table}")
+  end
+
+  def alter_tables(export) do
+    db_name = Export.destination_db_name(export)
+    Enum.each(export.schemas, &alter_table(&1, db_name))
+  end
+
+  # Alter existing table based on the change in schema definition
+  # Supported changeset includes:
+  #       "add_column"
+  #       "drop_column"
+  #       "data_type"
+  #       "add_not_null"
+  def alter_table(schema, db_name) do
+    table_name = Schema.table_name(schema)
+
+    schema_columns = Schema.columns(schema)
+    existing_columns = table_columns(db_name, table_name)
+
+    cond do
+      Enum.count(schema_columns) > Enum.count(existing_columns) ->
+        Logger.info("Found new columns in the updated schema definition")
+        schema_columns
+        |> filter_new_columns(existing_columns)
+        |> Enum.each(&add_column(schema, &1))
+
+      Enum.count(schema_columns) < Enum.count(existing_columns) ->
+        Logger.info("Found less columns in the updated schema definition")
+    end
+  end
+
+  # Filters the additional column in the new schema definition
+  defp filter_new_columns(schema_columns, existing_columns) do
+    Enum.filter(schema_columns, &(Map.has_key?(existing_columns, &1) == false))
+  end
+
+  defp add_column(schema, column) do
+    Logger.info("Adding new column #{column}")
+    add_column_if_not_exists_sql(schema, column) |> Postgres.query!()
+    Logger.info("Added new column #{column}")
   end
 
   # Creates a current table definition map for each column
@@ -46,7 +83,8 @@ defmodule MS.SQL do
   #   %{ column_name_2 => %{colum attributes map...} }
   #   ...
   # ]
-  def table_definition(db, table) do
+  # If table does not exists returns empty list []
+  defp table_columns(db, table) do
     table_definition_sql(db, table)
     |> Postgres.query!()
     |> create_table_definition_map()
@@ -161,7 +199,7 @@ defmodule MS.SQL do
   @doc """
   SQL for adding a new column if it does not exists
   """
-  def create_column_if_not_exists_sql(schema, column) do
+  def add_column_if_not_exists_sql(schema, column) do
     table_name = table_name(schema)
     ~s(
         ALTER TABLE #{schema.ns}.#{table_name} ADD COLUMN

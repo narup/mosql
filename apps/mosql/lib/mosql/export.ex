@@ -16,9 +16,20 @@ defmodule MS.Export do
 
   `exclusives` optional list of only collections to export. if only list is present exclusion
   list is ignored.
+
+  `source_db_opts` and `destination_db_opts` contains the source and destination
+   database details. It's a keyword list with following optional keys:
+      `db_name`
+      `connection_url`
   """
   @derive [Poison.Encoder]
-  defstruct ns: "", type: "", schemas: [], exclusions: [], exclusives: []
+  defstruct ns: "",
+            type: "",
+            schemas: [],
+            exclusions: [],
+            exclusives: [],
+            source_db_opts: [],
+            destination_db_opts: []
 
   @typedoc """
   Export type definition
@@ -28,7 +39,9 @@ defmodule MS.Export do
           type: String.t(),
           schemas: term,
           exclusions: term,
-          exclusives: term
+          exclusives: term,
+          source_db_opts: term,
+          destination_db_opts: term
         }
 
   @doc """
@@ -104,7 +117,9 @@ defmodule MS.Export do
       type: db_ex.type,
       schemas: db_ex.schemas,
       exclusives: db_ex.exclusives,
-      exclusions: db_ex.exclusions
+      exclusions: db_ex.exclusions,
+      source_db_opts: db_ex.source_db_opts,
+      destination_db_opts: db_ex.destination_db_opts
     }
   end
 
@@ -161,6 +176,14 @@ defmodule MS.Export do
   """
   def populate_schema_store(export) do
     Enum.each(export.schemas, &Schema.populate_schema_store(&1))
+  end
+
+  @doc """
+  Retruns the name of the destination database
+  TODO: fetch the db details from export.destination_db_opts
+  """
+  def destination_db_name(_) do
+    Application.fetch_env!(:mosql, :postgres_opts) |> Keyword.fetch!(:database)
   end
 
   @doc """
@@ -283,7 +306,16 @@ end
 
 defmodule MS.DB.Export do
   use Memento.Table,
-    attributes: [:id, :ns, :type, :schemas, :exclusions, :exclusives],
+    attributes: [
+      :id,
+      :ns,
+      :type,
+      :schemas,
+      :exclusions,
+      :exclusives,
+      :source_db_opts,
+      :destination_db_opts
+    ],
     index: [:ns, :type],
     type: :ordered_set,
     autoincrement: true
@@ -316,7 +348,9 @@ defmodule MS.DB.Export do
       type: ex.type,
       schemas: ex.schemas,
       exclusions: ex.exclusions,
-      exclusives: ex.exclusives
+      exclusives: ex.exclusives,
+      source_db_opts: ex.source_db_opts,
+      destination_db_opts: ex.destination_db_opts
     }
   end
 end
