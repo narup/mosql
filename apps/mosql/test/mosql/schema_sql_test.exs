@@ -83,4 +83,35 @@ defmodule MS.SchemaSQLTest do
     upsert_sql = SQL.upsert_document_sql(schema, @user_flat_document)
     Logger.info("Upsert data SQL:\n #{upsert_sql}")
   end
+
+  test "test new columns on the schema mapping" do
+    schema_columns = Store.get("mosql.users.columns")
+
+    existing_columns = %{
+      "id" => "1",
+      "full_name" => "1",
+      "email" => "1",
+      "created_date" => "1"
+    }
+
+    assert ["zip_code"] = SQL.filter_new_columns(schema_columns, existing_columns)
+  end
+
+  test "test columns removed from the schema mapping" do
+    schema_columns = [
+      "id",
+      "full_name",
+      "created_date"
+    ]
+
+    existing_columns = %{
+      "id" => "1",
+      "full_name" => "1",
+      "email" => "1",
+      "zip_code" => "1",
+      "created_date" => "1"
+    }
+
+    assert ["email", "zip_code"] = SQL.filter_missing_columns(schema_columns, existing_columns)
+  end
 end

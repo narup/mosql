@@ -101,9 +101,17 @@ defmodule MS.MoSQL do
   Start the full export process for the given export
   """
   def start_full_export(export) do
-    Export.populate_schema_store(export)
-    SQL.prepare(export)
-    FullExport.trigger()
+    case Enum.count(export.schemas) do
+      0 ->
+        {:error, "Missing schema definitions"}
+
+      _ ->
+        Export.populate_schema_store(export)
+        SQL.prepare(export)
+        FullExport.trigger()
+
+        {:ok, "Full export pipeline started...."}
+    end
   end
 
   defp has_schema_load_errors(schemas) do
