@@ -1,5 +1,4 @@
 defmodule MS.Mongo do
-
   alias MS.Mongo.{Document, Type}
 
   @doc """

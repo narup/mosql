@@ -26,6 +26,18 @@ defmodule MS.SQL do
     end
   end
 
+  defp truncate_tables(export) do
+    Enum.each(export.schemas, &truncate_table(&1))
+  end
+
+  defp truncate_table(schema) do
+    if table_exists(schema) do
+      Logger.info("truncating table #{full_table_name(schema)}")
+      truncate_table_sql(schema) |> Postgres.query!()
+      Logger.info("table #{full_table_name(schema)} truncated")
+    end
+  end
+
   defp create_tables(export) do
     Enum.each(export.schemas, &create_table(&1))
   end
@@ -39,18 +51,6 @@ defmodule MS.SQL do
   def alter_tables(export) do
     db_name = Export.destination_db_name(export)
     Enum.each(export.schemas, &alter_table(&1, db_name))
-  end
-
-  defp truncate_tables(export) do
-    Enum.each(export.schemas, &truncate_table(&1))
-  end
-
-  defp truncate_table(schema) do
-    if table_exists(schema) do
-      Logger.info("truncating table #{full_table_name(schema)}")
-      truncate_table_sql(schema) |> Postgres.query!()
-      Logger.info("table #{full_table_name(schema)} truncated")
-    end
   end
 
   # Alter existing table based on the change in schema definition
@@ -67,23 +67,30 @@ defmodule MS.SQL do
 
     cond do
       Enum.count(schema_columns) > Enum.count(existing_columns) ->
-        Logger.info("Found new columns in the updated schema definition for table #{full_table_name(schema)}")
+        Logger.info(
+          "Found new columns in the updated schema definition for table #{full_table_name(schema)}"
+        )
 
         schema_columns
         |> filter_new_columns(existing_columns)
         |> Enum.each(&add_column(schema, &1))
 
       Enum.count(schema_columns) < Enum.count(existing_columns) ->
-        Logger.info("Found less columns in the updated schema definition for table #{full_table_name(schema)}")
+        Logger.info(
+          "Found less columns in the updated schema definition for table #{full_table_name(schema)}"
+        )
 
         schema_columns
         |> filter_missing_columns(existing_columns)
         |> Enum.each(&remove_column(schema, &1))
+
+true -> IO.puts("Schema unchanged")
     end
   end
 
   def table_exists(schema) do
-    table_exists_sql(schema) |> Postgres.query!() |> Enum.empty?() == false
+    res = table_exists_sql(schema) |> Postgres.query!()
+    Enum.empty?(res.rows) == false
   end
 
   # Filters the additional column in the new schema definition
@@ -103,7 +110,10 @@ defmodule MS.SQL do
   end
 
   defp remove_column(schema, column) do
-    Logger.info("Removing column no longer found in the schema definition #{column} for table #{full_table_name(schema)}")
+    Logger.info(
+      "Removing column no longer found in the schema definition #{column} for table #{full_table_name(schema)}"
+    )
+
     remove_column_if_exists_sql(schema, column) |> Postgres.query!()
     Logger.info("Removed column #{column} from the table #{full_table_name(schema)}")
   end

@@ -66,7 +66,7 @@ defmodule MS.Export do
   def setup!(nodes \\ [node()]) do
     # Create the DB directory (if custom path given)
     if path = Application.get_env(:mnesia, :dir) do
-      :ok = File.mkdir_p!(path)
+      File.mkdir_p!(path)
     end
 
     # Create the Schema

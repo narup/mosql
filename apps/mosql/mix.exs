@@ -35,7 +35,6 @@ defmodule MS.MixProject do
       {:decimal, "~> 2.0"},
       {:poison, "~> 5.0"},
       {:memento, "~> 0.3.2"},
-      {:rustler, "~> 0.26.0"},
       {:broadway_mongo, in_umbrella: true}
     ]
   end

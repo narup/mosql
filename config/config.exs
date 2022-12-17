@@ -40,7 +40,7 @@ config :mosql, schema_files_path: "/Users/puran/projects/personal/mosql/test/fix
 #   producer_module: {MongoChangeStream, mongo_opts}
 
 config :logger, :console,
-  level: :info,
+  level: :debug,
   format: "$date $time [$level] $metadata$message\n",
   metadata: [:user_id]
 
