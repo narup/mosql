@@ -160,32 +160,22 @@ defmodule MS.Schema do
     Enum.each(schema.mappings, &store_map_items(schema, &1))
   end
 
-  defp store_map_items(schema, schema_map_item) do
-    store_columns("#{schema.ns}.#{schema.collection}.columns", schema_map_item)
+  defp store_map_items(schema, item) do
+    mapping_key(schema, @columns) |> store_columns(item)
 
-    mapping_key(schema, schema_map_item.mongo_key, @sql_column)
-    |> Store.set(schema_map_item.sql_column)
+    mapping_key(schema, item.mongo_key, @sql_column) |> store(item.sql_column)
 
-    mapping_key(schema, schema_map_item.mongo_key, @sql_type)
-    |> Store.set(schema_map_item.sql_type)
+    mapping_key(schema, item.mongo_key, @sql_type) |> store(item.sql_type)
 
-    mapping_key(schema, schema_map_item.sql_column, @sql_type)
-    |> Store.set(schema_map_item.sql_type)
+    mapping_key(schema, item.sql_column, @sql_type) |> store(item.sql_type)
 
-    mapping_key(schema, schema_map_item.sql_column, @mongo_key)
-    |> Store.set(schema_map_item.mongo_key)
+    mapping_key(schema, item.sql_column, @mongo_key) |> store(item.mongo_key)
 
-    mapping_key(schema, schema_map_item.sql_column, @primary_key)
-    |> Store.set(schema_map_item.primary_key)
+    mapping_key(schema, item.sql_column, @primary_key) |> store(item.primary_key)
 
-    if schema_map_item.primary_key do
-      mapping_key(schema, schema.table, @primary_key) |> Store.set(schema_map_item.sql_column)
+    if item.primary_key do
+      mapping_key(schema, schema.table, @primary_key) |> store(item.sql_column)
     end
-  end
-
-  defp store_columns(key, schema_map_item) do
-    columns = Store.get(key)
-    Store.set(key, columns ++ [schema_map_item.sql_column])
   end
 
   defp mapping_key(schema, field_name) do
@@ -194,6 +184,15 @@ defmodule MS.Schema do
 
   defp mapping_key(schema, field_name, field_value) do
     "#{schema.ns}.#{schema.collection}.#{field_name}.#{field_value}"
+  end
+
+  defp store_columns(key, schema_map_item) do
+    columns = Store.get(key)
+    store(key, columns ++ [schema_map_item.sql_column])
+  end
+
+  defp store(key, value) do
+    Store.set(key, value)
   end
 
   defp load_schema_file_from_path(schema_file_path) do

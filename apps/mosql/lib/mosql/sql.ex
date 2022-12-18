@@ -84,7 +84,8 @@ defmodule MS.SQL do
         |> filter_missing_columns(existing_columns)
         |> Enum.each(&remove_column(schema, &1))
 
-true -> IO.puts("Schema unchanged")
+      true ->
+        IO.puts("Schema unchanged")
     end
   end
 

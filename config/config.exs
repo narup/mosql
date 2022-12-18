@@ -11,13 +11,9 @@ import Config
 
 alias MS.BroadwayMongo.Producer, as: MongoChangeStream
 
-# Using an SRV URI also discovers all nodes of the deployment automatically
-# Example: mongodb+srv://pss-mongo-cluster.xpbte.mongodb.net/mosql
-mongo_srv_url = System.get_env("MONGO_SRV_URL") || "MONGO_SRV_URL not set"
-
 # srv uri option
 url_mongo_opts = [
-  url: mongo_srv_url,
+  url: System.fetch_env!("MONGO_URL"),
   appname: "mosql",
   ssl: true,
   ssl_opts: [
