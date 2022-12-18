@@ -23,7 +23,13 @@ defmodule MS.Pipeline.FullExport do
         producer: [
           module:
             {FullExportProducer,
-             %{export_triggered: false, collections: [], demand_filled: 0, pending_demand: 0}},
+             %{
+               export_triggered: false,
+               collections: [],
+               exported_collections: [],
+               demand_filled: 0,
+               pending_demand: 0
+             }},
           transformer: {__MODULE__, :transform, []}
         ],
         processors: [

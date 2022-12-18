@@ -17,7 +17,12 @@ defmodule MS.Store do
   end
 
   def get(key) do
-    Agent.get(__MODULE__, &Map.fetch!(&1, key))
+    Agent.get(__MODULE__, fn state ->
+      case Map.fetch(state, key) do
+        {:ok, r} -> r
+        :error -> nil
+      end
+    end)
   end
 
   def get_if_exists(key, default_val) do
