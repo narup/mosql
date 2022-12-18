@@ -21,7 +21,9 @@ defmodule MS.Pipeline.FullExport do
       Broadway.start_link(__MODULE__,
         name: __MODULE__,
         producer: [
-          module: {FullExportProducer, 1},
+          module:
+            {FullExportProducer,
+             %{export_triggered: false, collections: [], demand_filled: 0, pending_demand: 0}},
           transformer: {__MODULE__, :transform, []}
         ],
         processors: [

@@ -54,6 +54,10 @@ defmodule MS.Schema do
     mapping_key(schema, @mapping) |> Store.get()
   end
 
+  def all_collections(ns) do
+    namespace_key(ns, @collections) |> Store.get()
+  end
+
   @doc """
   Returns the schema name for a schema mapping definition
   """
