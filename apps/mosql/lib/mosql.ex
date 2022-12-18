@@ -108,7 +108,7 @@ defmodule MS.MoSQL do
       _ ->
         Export.populate_schema_store(export)
         SQL.prepare(export)
-        FullExport.trigger()
+        FullExport.trigger(export.ns)
 
         {:ok, "Full export pipeline started...."}
     end

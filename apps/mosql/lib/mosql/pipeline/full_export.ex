@@ -10,10 +10,10 @@ defmodule MS.Pipeline.FullExport do
   require Logger
 
   @doc """
-  Kick of the migration process
+  Kick of the migration process for the given namespace
   """
-  def trigger() do
-    FullExportProducer.trigger()
+  def trigger(ns) do
+    FullExportProducer.trigger(ns)
   end
 
   def start_link(_opts) do

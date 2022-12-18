@@ -8,8 +8,8 @@ defmodule MS.Pipeline.FullExportProducer do
     {:producer, opts}
   end
 
-  def handle_cast(:trigger, counter) do
-    Logger.info("Starting data export")
+  def handle_cast({:trigger, ns}, counter) do
+    Logger.info("Starting full data export for namespace: #{ns}")
     events = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"]
     {:noreply, events, counter + 10}
   end
@@ -19,9 +19,9 @@ defmodule MS.Pipeline.FullExportProducer do
     {:noreply, [], counter + demand}
   end
 
-  def trigger() do
+  def trigger(ns) do
     producer_name = Broadway.producer_names(MS.Pipeline.FullExport) |> Enum.random()
-    Logger.info("Producer name: #{producer_name}")
-    GenStage.cast(producer_name, :trigger)
+    Logger.info("Trigger full export: #{producer_name} for namespace: #{ns}")
+    GenStage.cast(producer_name, {:trigger, ns})
   end
 end

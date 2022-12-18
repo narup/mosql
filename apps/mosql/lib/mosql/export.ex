@@ -175,6 +175,7 @@ defmodule MS.Export do
   Populate the schema store (`MS.Store`) for the data export process
   """
   def populate_schema_store(export) do
+    Schema.init_schema_store(export.ns)
     Enum.each(export.schemas, &Schema.populate_schema_store(&1))
   end
 

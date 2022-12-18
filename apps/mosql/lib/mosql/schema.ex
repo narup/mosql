@@ -6,6 +6,8 @@ defmodule MS.Schema do
   require Logger
 
   @name "name"
+  @collections "collections"
+  @tables "tables"
   @table "table"
   @columns "columns"
   @sql_column "column"
@@ -127,6 +129,11 @@ defmodule MS.Schema do
     load_schema_file_from_path(schema_file_path)
   end
 
+  def init_schema_store(ns) do
+    namespace_key(ns, @tables) |> store_tables([])
+    namespace_key(ns, @collections) |> store_collections([])
+  end
+
   @doc """
   store the schema mapping as key value in the Schema store
     <namespace>.<collection>.name = <value>
@@ -140,13 +147,16 @@ defmodule MS.Schema do
   """
   def populate_schema_store(schema) do
     # Store the whole mapping first in the store
-    mapping_key(schema, @mapping) |> Store.set(schema)
+    mapping_key(schema, @mapping) |> store(schema)
+
+    namespace_key(schema.ns, @tables) |> store_tables(schema.table)
+    namespace_key(schema.ns, @collections) |> store_collections(schema.collection)
 
     schema_name = if schema.name == "", do: "public", else: schema.name
-    mapping_key(schema, @name) |> Store.set(schema_name)
+    mapping_key(schema, @name) |> store(schema_name)
 
-    mapping_key(schema, @table) |> Store.set(schema.table)
-    mapping_key(schema, @columns) |> Store.set([])
+    mapping_key(schema, @table) |> store(schema.table)
+    mapping_key(schema, @columns) |> store([])
 
     if Enum.count(schema.primary_keys) > 0 do
       pkeys = Enum.join(schema.primary_keys, ", ")
@@ -178,12 +188,26 @@ defmodule MS.Schema do
     end
   end
 
+  defp namespace_key(ns, field_name) do
+    "#{ns}.#{field_name}"
+  end
+
   defp mapping_key(schema, field_name) do
     "#{schema.ns}.#{schema.collection}.#{field_name}"
   end
 
   defp mapping_key(schema, field_name, field_value) do
     "#{schema.ns}.#{schema.collection}.#{field_name}.#{field_value}"
+  end
+
+  defp store_tables(key, table) do
+    tables = Store.get(key)
+    store(key, tables ++ [table])
+  end
+
+  defp store_collections(key, collection) do
+    collections = Store.get(key)
+    store(key, collections ++ [collection])
   end
 
   defp store_columns(key, schema_map_item) do
