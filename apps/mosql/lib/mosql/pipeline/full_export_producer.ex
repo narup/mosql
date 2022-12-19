@@ -3,9 +3,9 @@ defmodule MS.Pipeline.FullExportProducer do
 
   require Logger
 
-  def init(opts) do
-    Logger.info("Producer init with opts: #{inspect(opts)}\n")
-    {:producer, opts}
+  def init(state) do
+    Logger.info("Producer init with opts: #{inspect(state)}\n")
+    {:producer, state}
   end
 
   def handle_cast({:trigger, ns}, state) do
@@ -35,13 +35,17 @@ defmodule MS.Pipeline.FullExportProducer do
         exported_collections = state.exported_collections ++ demanded
         state = %{state | exported_collections: exported_collections}
 
+        log_state(state)
         {:noreply, demanded, state}
 
       state.export_triggered == false ->
         state = %{state | pending_demand: demand}
+
+        log_state(state)
         {:noreply, [], state}
 
       true ->
+        log_state(state)
         {:noreply, [], state}
     end
   end
@@ -54,7 +58,7 @@ defmodule MS.Pipeline.FullExportProducer do
 
   defp handle_export_triggred(ns, state) do
     collections = MS.Schema.all_collections(ns)
-    collections = if collections == nil, do: []
+    collections = if collections == nil, do: raise("no collections loaded")
 
     state = %{state | export_triggered: true}
 
@@ -69,10 +73,17 @@ defmodule MS.Pipeline.FullExportProducer do
       exported_collections = state.exported_collections ++ demanded
       state = %{state | exported_collections: exported_collections}
 
+      log_state(state)
       {:noreply, demanded, state}
     else
       state = %{state | collections: collections}
+
+      log_state(state)
       {:noreply, collections, state}
     end
+  end
+
+  defp log_state(state) do
+    Logger.info("Full export producer state: #{inspect(state)}")
   end
 end
