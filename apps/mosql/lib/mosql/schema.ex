@@ -134,8 +134,8 @@ defmodule MS.Schema do
   end
 
   def init_schema_store(ns) do
-    namespace_key(ns, @tables) |> store_tables([])
-    namespace_key(ns, @collections) |> store_collections([])
+    namespace_key(ns, @tables) |> Store.set([])
+    namespace_key(ns, @collections) |> Store.set([])
   end
 
   @doc """

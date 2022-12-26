@@ -68,6 +68,7 @@ defmodule MS.MSTest do
         Logger.info("Loaded Schema: #{inspect(schema)}")
         Logger.info("Schema store pid #{inspect(schema_store)}")
 
+        Schema.init_schema_store("mosql")
         Schema.populate_schema_store(schema)
 
         assert Store.get("mosql.users.table") == "tbl_user"
@@ -94,6 +95,7 @@ defmodule MS.MSTest do
         Logger.info("Loaded Schema: #{inspect(schema)}")
         Logger.info("Schema store pid #{inspect(schema_store)}")
 
+        Schema.init_schema_store("mosql")
         Schema.populate_schema_store(schema)
 
         Logger.info("Columns: #{inspect(Schema.columns(schema))}")

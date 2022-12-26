@@ -68,6 +68,7 @@ defmodule MS.Pipeline.FullExport do
   # to %Broadway.Message{}
   def transform(event, opts) do
     IO.puts("Transform event: #{inspect(event)}, opts: #{inspect(opts)}")
+
     %Message{
       data: event,
       acknowledger: {__MODULE__, :ack_id, :ack_data}
