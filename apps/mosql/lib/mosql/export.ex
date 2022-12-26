@@ -349,9 +349,9 @@ defmodule MS.DB.Export do
   end
 
   def read_all do
-    Memento.transaction! fn ->
-        Memento.Query.all(MS.DB.Export)
-    end
+    Memento.transaction!(fn ->
+      Memento.Query.all(MS.DB.Export)
+    end)
   end
 
   defp to_db(ex) do
