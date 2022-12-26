@@ -16,6 +16,10 @@ defmodule MS.Pipeline.FullExport do
     FullExportProducer.trigger(ns)
   end
 
+  def export_status(ns) do
+    FullExportProducer.info_producer_status(ns)
+  end
+
   def start_link(_opts) do
     {:ok, pid} =
       Broadway.start_link(__MODULE__,
@@ -33,7 +37,7 @@ defmodule MS.Pipeline.FullExport do
           transformer: {__MODULE__, :transform, []}
         ],
         processors: [
-          default: [concurrency: 1]
+          default: [concurrency: 1, max_demand: 3, min_demand: 1]
         ],
         batchers: [
           default: [concurrency: 1, batch_size: 1]
@@ -44,10 +48,36 @@ defmodule MS.Pipeline.FullExport do
     {:ok, pid}
   end
 
+  # Callback method for Broadway.Processor. This is the place to prepare
+  # and preload any information that will be used by handle_message/3.
+  # For example, if you need to query the database, instead of doing it
+  # once per message, you can do it on this callback. The length of the list
+  # of messages received by this callback is based on the min_demand/max_demand
+  # configuration in the processor. This callback must always return all messages
+  # it receives, as handle_message/3 is still called individually for each
+  # message afterwards
   @impl true
-  def handle_message(_, message, _) do
+  def prepare_messages(messages, context) do
+    Logger.debug("messages: #{inspect(messages)}, context: #{inspect(context)}")
+  end
+
+  # Callback method for Broadway.Processor - This is the place to do any kind
+  # of processing with the incoming message, e.g., transform the data into
+  # another data structure, call specific business logic to do calculations.
+  # Basically, any CPU bounded task that runs against a single message should
+  # be processed here. The 3 arguments received are:
+  #   processor is the key that defined the processor.
+  #   message is the Broadway.Message struct to be processed.
+  #   context is the user defined data structure passed to start_link/2.
+  @impl true
+  def handle_message(processor, message, context) do
     IO.puts("=====handler begin=======")
-    Logger.debug("#{inspect(message)}")
+
+    Logger.debug(
+      "processor: #{inspect(processor)}, message: #{inspect(message)}, context: #{inspect(context)}"
+    )
+
+    # message |> update_data(&do_calculation_and_returns_the_new_data/1)
     IO.puts("=====handler end=======")
     Message.put_batcher(message, :default)
   end

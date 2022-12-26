@@ -101,12 +101,17 @@ defmodule MS.Export do
   @spec fetch(String.t(), String.t()) :: {:ok, %MS.Export{}} | {:error, :not_found}
   def fetch(namespace, type) do
     Logger.info("Fetching export data #{namespace}.#{type}")
-    MS.DB.Export.read(namespace, type) |> fetch_export_results()
+    MS.DB.Export.read(namespace, type) |> fetch_export_result()
   end
 
-  defp fetch_export_results(_ = []), do: {:error, :not_found}
+  def fetch_all() do
+    Logger.info("Fetching all the saved exports")
+    MS.DB.Export.read_all() |> Enum.map(&from_db(&1))
+  end
 
-  defp fetch_export_results(result) do
+  defp fetch_export_result(_ = []), do: {:error, :not_found}
+
+  defp fetch_export_result(result) do
     ex = Enum.map(result, &from_db(&1)) |> Enum.at(0)
     {:ok, ex}
   end
@@ -341,6 +346,12 @@ defmodule MS.DB.Export do
     Memento.transaction!(fn ->
       Memento.Query.select(MS.DB.Export, query)
     end)
+  end
+
+  def read_all do
+    Memento.transaction! fn ->
+        Memento.Query.all(MS.DB.Export)
+    end
   end
 
   defp to_db(ex) do

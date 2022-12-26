@@ -3,11 +3,25 @@ defmodule MS.Pipeline.FullExportProducer do
 
   require Logger
 
+  @doc """
+  Trigger the full export process. This starts the Broadway producer
+  """
+  def trigger(ns) do
+    Logger.info("Triggered full export for namespace #{ns}")
+    producer() |> GenStage.cast({:trigger, ns})
+  end
+
+  def info_producer_status(ns) do
+    producer() |> GenStage.cast({:status_info, ns})
+  end
+
+  @impl true
   def init(state) do
     Logger.info("Producer init with opts: #{inspect(state)}\n")
     {:producer, state}
   end
 
+  @impl true
   def handle_cast({:trigger, ns}, state) do
     if state.export_triggered do
       Logger.info("Export already triggered, no action performed")
@@ -17,6 +31,14 @@ defmodule MS.Pipeline.FullExportProducer do
     end
   end
 
+  @impl true
+  def handle_cast({:status_info, ns}, state) do
+    log_state(state)
+    Logger.info("Status logged for full export for namespace #{ns}")
+    {:noreply, [], state}
+  end
+
+  @impl true
   def handle_demand(demand, state) do
     Logger.info("Demand received for #{demand} collections")
 
@@ -50,12 +72,6 @@ defmodule MS.Pipeline.FullExportProducer do
     end
   end
 
-  def trigger(ns) do
-    producer_name = Broadway.producer_names(MS.Pipeline.FullExport) |> Enum.random()
-    Logger.info("Trigger full export: #{producer_name} for namespace: #{ns}")
-    GenStage.cast(producer_name, {:trigger, ns})
-  end
-
   defp handle_export_triggred(ns, state) do
     collections = MS.Schema.all_collections(ns)
     collections = if collections == nil, do: raise("no collections loaded")
@@ -81,6 +97,10 @@ defmodule MS.Pipeline.FullExportProducer do
       log_state(state)
       {:noreply, collections, state}
     end
+  end
+
+  defp producer() do
+    Broadway.producer_names(MS.Pipeline.FullExport) |> Enum.random()
   end
 
   defp log_state(state) do
