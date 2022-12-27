@@ -11,6 +11,14 @@ defmodule MS.Mongo do
     end
   end
 
+  @doc """
+  Returns a cursor for all the documents for a given collection
+  with a given batch size
+  """
+  def find_all(collection, batch_size) do
+    Mongo.find(:mongo, collection, %{}, batch_size: batch_size, limit: 12)
+  end
+
   def documents(collection, query) do
     Mongo.find(:mongo, collection, query) |> Enum.to_list()
   end

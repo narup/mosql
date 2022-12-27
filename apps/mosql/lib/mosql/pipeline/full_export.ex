@@ -6,6 +6,7 @@ defmodule MS.Pipeline.FullExport do
 
   alias Broadway.Message
   alias MS.Pipeline.FullExportProducer
+  alias MS.Mongo
 
   require Logger
 
@@ -58,7 +59,18 @@ defmodule MS.Pipeline.FullExport do
   # message afterwards
   @impl true
   def prepare_messages(messages, context) do
-    Logger.debug("messages: #{inspect(messages)}, context: #{inspect(context)}")
+    Logger.debug(
+      "Handling callback `prepare_messages`. messages: #{inspect(messages)}, context: #{inspect(context)}"
+    )
+
+    messages =
+      Enum.map(messages, fn message ->
+        Logger.info("Fetching documents for the collection #{message.data}")
+        cursor = Mongo.find_all(message.data, 3)
+        Message.put_data(message, Enum.to_list(cursor))
+      end)
+
+    messages
   end
 
   # Callback method for Broadway.Processor - This is the place to do any kind
