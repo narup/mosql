@@ -58,7 +58,9 @@ defmodule MS.Pipeline.FullExportProducer do
         state = %{state | exported_collections: exported_collections}
 
         log_state(state)
-        {:noreply, demanded, state}
+
+        final_list = collection_data(state.namespace, demanded)
+        {:noreply, final_list, state}
 
       state.export_triggered == false ->
         state = %{state | pending_demand: demand}
@@ -79,6 +81,7 @@ defmodule MS.Pipeline.FullExportProducer do
     Logger.info("Total collections to export #{inspect(Enum.count(collections))}")
 
     state = %{state | export_triggered: true}
+    state = %{state | namespace: ns}
 
     if Enum.count(collections) > 0 && state.pending_demand > 0 do
       Logger.info("Handling a pending demand of #{state.pending_demand}")
@@ -92,12 +95,16 @@ defmodule MS.Pipeline.FullExportProducer do
       state = %{state | exported_collections: exported_collections}
 
       log_state(state)
-      {:noreply, demanded, state}
+
+      final_list = collection_data(state.namespace, demanded)
+      {:noreply, final_list, state}
     else
       state = %{state | collections: collections}
 
       log_state(state)
-      {:noreply, collections, state}
+
+      final_list = collection_data(state.namespace, collections)
+      {:noreply, final_list, state}
     end
   end
 
@@ -107,5 +114,11 @@ defmodule MS.Pipeline.FullExportProducer do
 
   defp log_state(state) do
     Logger.info("Full export producer state: #{inspect(state)}")
+  end
+
+  defp collection_data(ns, collections) do
+    Enum.map(collections, fn c ->
+      [namespace: ns, collection: c]
+    end)
   end
 end

@@ -4,9 +4,12 @@ defmodule MS.Pipeline.FullExport do
   """
   use Broadway
 
+  alias ElixirSense.Plugins.Ecto.Schema
   alias Broadway.Message
   alias MS.Pipeline.FullExportProducer
   alias MS.Mongo
+  alias MS.Schema
+  alias MS.SQL
 
   require Logger
 
@@ -29,6 +32,7 @@ defmodule MS.Pipeline.FullExport do
           module:
             {FullExportProducer,
              %{
+               namespace: '',
                export_triggered: false,
                collections: [],
                exported_collections: [],
@@ -50,50 +54,47 @@ defmodule MS.Pipeline.FullExport do
     {:ok, pid}
   end
 
-  # Callback method for Broadway.Processor. This is the place to prepare
-  # and preload any information that will be used by handle_message/3.
-  # For example, if you need to query the database, instead of doing it
-  # once per message, you can do it on this callback. The length of the list
-  # of messages received by this callback is based on the min_demand/max_demand
-  # configuration in the processor. This callback must always return all messages
-  # it receives, as handle_message/3 is still called individually for each
-  # message afterwards
+  # Prepare the messages that contain the mongo collection names for the export.
+  # Attach the Mongo.Stream cursor to fetch all the documents for each collection
+  # on message data.
   @impl true
-  def prepare_messages(messages, context) do
-    Logger.info(
-      "Handling callback `prepare_messages`. messages: #{inspect(messages)}, context: #{inspect(context)}"
-    )
+  def prepare_messages(messages, _context) do
+    Logger.info("Handling callback `prepare_messages`. messages: #{inspect(messages)}}")
 
-    # Update the message to include rows
+    # Update the message to include Mongo cursor to fetch all the reocrds lazily
     messages =
       Enum.map(messages, fn message ->
-        Logger.info("Fetching documents for the collection #{message.data}")
+        coll = message.data[:collection]
+        ns = message.data[:namespace]
 
-        cursor = Mongo.find_all(message.data, 3)
-        Message.update_data(message, fn data ->
-          %{collection: data, rows: cursor}
+        Logger.info("Fetching documents for the collection #{coll} in namespace #{ns}")
+
+        cursor = Mongo.find_all(coll, 3)
+
+        Message.update_data(message, fn _ ->
+          %{namespace: ns, collection: coll, rows: cursor}
         end)
       end)
 
     messages
   end
 
-  # Callback method for Broadway.Processor - This is the place to do any kind
-  # of processing with the incoming message, e.g., transform the data into
-  # another data structure, call specific business logic to do calculations.
-  # Basically, any CPU bounded task that runs against a single message should
-  # be processed here. The 3 arguments received are:
-  #   processor is the key that defined the processor.
-  #   message is the Broadway.Message struct to be processed.
-  #   context is the user defined data structure passed to start_link/2.
+  # Handle the export for each document of the collection
   @impl true
   def handle_message(processor, message, _context) do
+    %{data: %{namespace: namespace, collection: collection, rows: cursor}} = message
 
-    %{data: %{collection: collection, rows: cursor} } = message
+    Logger.info(
+      "Handling callback 'handle_message' for collection '#{collection}' with processor id #{processor}"
+    )
 
-    Logger.info("Handling callback 'handle_message' for collection '#{collection}' with processor id #{processor}")
-    Enum.to_list(cursor) |> Enum.each(fn d ->
+    schema = %Schema{ns: namespace, collection: collection}
+
+    Enum.to_list(cursor)
+    |> Enum.each(fn d ->
       IO.inspect(d)
+      sql = SQL.upsert_document_sql(schema, d)
+      Logger.info("SQL: #{sql}")
     end)
 
     Message.put_batcher(message, :default)
