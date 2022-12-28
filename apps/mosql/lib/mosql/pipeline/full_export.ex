@@ -91,9 +91,11 @@ defmodule MS.Pipeline.FullExport do
     schema = %Schema{ns: namespace, collection: collection}
 
     Enum.to_list(cursor)
-    |> Enum.each(fn d ->
-      IO.inspect(d)
-      sql = SQL.upsert_document_sql(schema, d)
+    |> Enum.each(fn doc ->
+      flat_doc = Mongo.flat_document_map(doc)
+      IO.inspect(flat_doc)
+
+      sql = SQL.upsert_document_sql(schema, flat_doc)
       Logger.info("SQL: #{sql}")
     end)
 
