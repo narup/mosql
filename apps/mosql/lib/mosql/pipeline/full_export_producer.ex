@@ -74,9 +74,9 @@ defmodule MS.Pipeline.FullExportProducer do
 
   defp handle_export_triggred(ns, state) do
     collections = MS.Schema.all_collections(ns)
-    IO.puts("Collections: #{inspect(collections)}")
-
     if collections == nil, do: raise("no collections loaded")
+
+    Logger.info("Total collections to export #{inspect(Enum.count(collections))}")
 
     state = %{state | export_triggered: true}
 

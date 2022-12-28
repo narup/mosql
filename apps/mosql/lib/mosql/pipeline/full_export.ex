@@ -38,7 +38,8 @@ defmodule MS.Pipeline.FullExport do
           transformer: {__MODULE__, :transform, []}
         ],
         processors: [
-          default: [concurrency: 1, max_demand: 3, min_demand: 1]
+          # all default values
+          default: [concurrency: System.schedulers_online() * 2, max_demand: 10, min_demand: 5]
         ],
         batchers: [
           default: [concurrency: 1, batch_size: 1]
@@ -59,15 +60,19 @@ defmodule MS.Pipeline.FullExport do
   # message afterwards
   @impl true
   def prepare_messages(messages, context) do
-    Logger.debug(
+    Logger.info(
       "Handling callback `prepare_messages`. messages: #{inspect(messages)}, context: #{inspect(context)}"
     )
 
+    # Update the message to include rows
     messages =
       Enum.map(messages, fn message ->
         Logger.info("Fetching documents for the collection #{message.data}")
+
         cursor = Mongo.find_all(message.data, 3)
-        Message.put_data(message, Enum.to_list(cursor))
+        Message.update_data(message, fn data ->
+          %{collection: data, rows: cursor}
+        end)
       end)
 
     messages
@@ -82,15 +87,15 @@ defmodule MS.Pipeline.FullExport do
   #   message is the Broadway.Message struct to be processed.
   #   context is the user defined data structure passed to start_link/2.
   @impl true
-  def handle_message(processor, message, context) do
-    IO.puts("=====handler begin=======")
+  def handle_message(processor, message, _context) do
 
-    Logger.debug(
-      "processor: #{inspect(processor)}, message: #{inspect(message)}, context: #{inspect(context)}"
-    )
+    %{data: %{collection: collection, rows: cursor} } = message
 
-    # message |> update_data(&do_calculation_and_returns_the_new_data/1)
-    IO.puts("=====handler end=======")
+    Logger.info("Handling callback 'handle_message' for collection '#{collection}' with processor id #{processor}")
+    Enum.to_list(cursor) |> Enum.each(fn d ->
+      IO.inspect(d)
+    end)
+
     Message.put_batcher(message, :default)
   end
 
