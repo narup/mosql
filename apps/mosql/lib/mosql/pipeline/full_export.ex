@@ -69,7 +69,7 @@ defmodule MS.Pipeline.FullExport do
 
         Logger.info("Fetching documents for the collection #{coll} in namespace #{ns}")
 
-        cursor = Mongo.find_all(coll, 3)
+        cursor = Mongo.find_all(coll, 2)
 
         Message.update_data(message, fn _ ->
           %{namespace: ns, collection: coll, rows: cursor}

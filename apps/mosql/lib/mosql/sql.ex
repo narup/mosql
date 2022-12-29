@@ -299,7 +299,9 @@ defmodule MS.SQL do
   @type_map %{
     "string" => "text",
     "boolean" => "boolean",
-    "integer" => "integer",
+    "small_integer" => "smallint", #-32768 to +32767
+    "integer" => "integer", #-2147483648 to +2147483647
+    "big_integer" => "bigint",#-9223372036854775808 to 9223372036854775807
     "float" => "numeric",
     "datetime" => "timestamp with time zone"
   }

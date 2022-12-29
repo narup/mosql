@@ -16,7 +16,7 @@ defmodule MS.Mongo do
   with a given batch size
   """
   def find_all(collection, batch_size) do
-    Mongo.find(:mongo, collection, %{}, batch_size: batch_size, limit: 12)
+    Mongo.find(:mongo, collection, %{}, batch_size: batch_size, limit: 4)
   end
 
   def documents(collection, query) do
@@ -159,7 +159,13 @@ defmodule MS.Mongo.Type do
   def typeof(a) when is_list(a), do: "map"
   def typeof(a) when is_bitstring(a), do: "string"
   def typeof(a) when is_float(a), do: "float"
-  def typeof(a) when is_integer(a), do: "integer"
+  def typeof(a) when is_integer(a) do
+    cond do
+      a <= 99999 -> "small_integer"
+      a > 99999 && a <= 9999999999 -> "integer"
+      a > 9999999999 -> "big_integer"
+    end
+  end
   def typeof(a) when is_binary(a), do: "binary"
   def typeof(a) when is_tuple(a), do: "tuple"
   def typeof(a) when is_atom(a), do: "atom"

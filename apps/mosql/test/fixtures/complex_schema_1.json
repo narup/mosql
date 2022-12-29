@@ -1,0 +1,52 @@
+{
+  "table": "view_logs",
+  "primary_keys": [],
+  "ns": "testms",
+  "name": "metrics",
+  "indexes": [],
+  "collection": "viewLogs",
+  "mappings": [
+    {
+      "mongo_key": "_id",
+      "sql_column": "id",
+      "sql_type": "text",
+      "primary_key": true
+    },
+    {
+      "mongo_key": "logType",
+      "sql_column": "log_type",
+      "sql_type": "text",
+    },
+    {
+      "sql_type": "timestamp with time zone",
+      "sql_column": "created_date",
+      "mongo_key": "createdDate"
+    },
+    {
+      "sql_type": "integer",
+      "sql_column": "frequency_count",
+      "mongo_key": "frequencyCount"
+    },
+    {
+      "sql_type": "numeric",
+      "sql_column": "variance",
+      "mongo_key": "varianceAmount"
+    },
+
+    {
+      "sql_type": "text",
+      "sql_column": "view_tags",
+      "mongo_key": "viewTags"
+    },
+    {
+      "sql_type": "boolean",
+      "sql_column": "high_alert",
+      "mongo_key": "highAlert"
+    },
+    {
+      "sql_type": "boolean",
+      "sql_column": "is_active",
+      "mongo_key": "isActive"
+    }
+  ]
+}
