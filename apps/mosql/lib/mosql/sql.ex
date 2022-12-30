@@ -188,18 +188,18 @@ defmodule MS.SQL do
 
   """
   def create_table_with_columns_sql(schema) do
-    schema_name = Schema.schema_name(schema)
-    Logger.info("Generating table creation SQL for #{schema_name}.#{schema.collection}")
+    table_name = full_table_name(schema)
+    Logger.info("Generating table creation SQL for #{table_name}")
 
     columns =
       schema
       |> Schema.columns()
       |> Enum.map(&column_definition(schema, &1))
-      |> Enum.join("\n\t,")
+      |> Enum.join(", ")
 
     ~s(
-      CREATE TABLE IF NOT EXISTS #{schema_name}.#{table_name(schema)} (
-         #{columns}
+      CREATE TABLE IF NOT EXISTS #{table_name} (
+        #{columns}
       \);
     )
   end
@@ -208,9 +208,8 @@ defmodule MS.SQL do
     Generates a SQL string for creating a table if not exists
   """
   def create_table_if_not_exists_sql(schema) do
-    schema_name = Schema.schema_name(schema)
-    table_name = table_name(schema)
-    "CREATE TABLE IF NOT EXISTS #{schema_name}.#{table_name}"
+    table_name = full_table_name(schema)
+    "CREATE TABLE IF NOT EXISTS #{table_name}"
   end
 
   @doc """
@@ -218,7 +217,7 @@ defmodule MS.SQL do
   """
   def table_exists_sql(schema) do
     schema_name = Schema.schema_name(schema)
-    table_name = table_name(schema)
+    table_name = Schema.table_name(schema)
     ~s(
       SELECT table_name FROM information_schema.tables
           WHERE table_schema = '#{schema_name}' AND table_name = '#{table_name}'
@@ -229,27 +228,25 @@ defmodule MS.SQL do
   SQL for drop table
   """
   def drop_table_sql(schema) do
-    schema_name = Schema.schema_name(schema)
-    table_name = table_name(schema)
-    "DROP TABLE IF EXISTS #{schema_name}.#{table_name}"
+    table_name = full_table_name(schema)
+    "DROP TABLE IF EXISTS #{table_name}"
   end
 
   @doc """
   SQL for truncate table
   """
   def truncate_table_sql(schema) do
-    schema_name = Schema.schema_name(schema)
-    table_name = table_name(schema)
-    "TRUNCATE TABLE #{schema_name}.#{table_name}"
+    table_name = full_table_name(schema)
+    "TRUNCATE TABLE #{table_name}"
   end
 
   @doc """
   SQL for adding a new column if it does not exists
   """
   def add_column_if_not_exists_sql(schema, column) do
-    table_name = table_name(schema)
+    table_name = full_table_name(schema)
     ~s(
-        ALTER TABLE #{schema.ns}.#{table_name} ADD COLUMN
+        ALTER TABLE #{table_name} ADD COLUMN
         IF NOT EXISTS #{column}
     )
   end
@@ -258,9 +255,9 @@ defmodule MS.SQL do
   SQL for removing a column if it does exists
   """
   def remove_column_if_exists_sql(schema, column) do
-    table_name = table_name(schema)
+    table_name = full_table_name(schema)
     ~s(
-        ALTER TABLE #{schema.ns}.#{table_name} DROP COLUMN
+        ALTER TABLE #{table_name} DROP COLUMN
         IF EXISTS #{column_definition(schema, column)}
     )
   end
@@ -272,12 +269,12 @@ defmodule MS.SQL do
     ON CONFLICT (primary_key_field) DO UPDATE SET column = EXCLUDED.column...;
   """
   def upsert_document_sql(schema, mongo_document \\ %{}) do
-    table_name = table_name(schema)
+    table_name = full_table_name(schema)
     primary_key = Schema.primary_key(schema)
 
     column_list = schema |> Schema.columns()
 
-    columns = Enum.join(column_list, "\n\t,")
+    columns = Enum.join(column_list, ", ")
 
     update_columns =
       column_list
@@ -288,20 +285,22 @@ defmodule MS.SQL do
     values = column_values(schema, column_list, mongo_document)
 
     ~s(
-      INSERT INTO #{schema.ns}.#{table_name} (
-         #{columns}
-      \) VALUES (
-        #{values}
-      \) ON CONFLICT ( #{primary_key} \) DO UPDATE SET #{update_columns};
+      INSERT INTO #{table_name} ( #{columns} \)
+      VALUES ( #{values} \)
+      ON CONFLICT ( #{primary_key} \)
+      DO UPDATE SET #{update_columns}
     )
   end
 
+  # small_integer -> -32768 to +32767
+  # integer -> -2147483648 to +2147483647
+  # big_integer -> -9223372036854775808 to 9223372036854775807
   @type_map %{
     "string" => "text",
     "boolean" => "boolean",
-    "small_integer" => "smallint", #-32768 to +32767
-    "integer" => "integer", #-2147483648 to +2147483647
-    "big_integer" => "bigint",#-9223372036854775808 to 9223372036854775807
+    "small_integer" => "smallint",
+    "integer" => "integer",
+    "big_integer" => "bigint",
     "float" => "numeric",
     "datetime" => "timestamp with time zone"
   }
@@ -327,10 +326,6 @@ defmodule MS.SQL do
   defp column_value(schema, column, mongo_document) do
     mongo_key = Schema.mongo_key(schema, column)
     "'#{Map.get(mongo_document, mongo_key)}'"
-  end
-
-  defp table_name(schema) do
-    Schema.table_name(schema)
   end
 
   defp full_table_name(schema) do

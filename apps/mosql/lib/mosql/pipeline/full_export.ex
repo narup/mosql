@@ -4,7 +4,6 @@ defmodule MS.Pipeline.FullExport do
   """
   use Broadway
 
-  alias ElixirSense.Plugins.Ecto.Schema
   alias Broadway.Message
   alias MS.Pipeline.FullExportProducer
   alias MS.Mongo
@@ -88,18 +87,18 @@ defmodule MS.Pipeline.FullExport do
       "Handling callback 'handle_message' for collection '#{collection}' with processor id #{processor}"
     )
 
-    schema = %Schema{ns: namespace, collection: collection}
-
-    Enum.to_list(cursor)
-    |> Enum.each(fn doc ->
-      flat_doc = Mongo.flat_document_map(doc)
-      IO.inspect(flat_doc)
-
-      sql = SQL.upsert_document_sql(schema, flat_doc)
-      Logger.info("SQL: #{sql}")
-    end)
+    schema = Schema.saved_schema(namespace, collection)
+    Enum.to_list(cursor) |> Enum.each(&get_upsert_sql(&1, schema))
 
     Message.put_batcher(message, :default)
+  end
+
+  defp get_upsert_sql(doc, schema) do
+    flat_doc = Mongo.flat_document_map(doc)
+    IO.inspect(flat_doc)
+
+    sql = SQL.upsert_document_sql(schema, flat_doc)
+    Logger.info("SQL: #{sql}")
   end
 
   @impl true

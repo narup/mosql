@@ -96,6 +96,13 @@ defmodule MS.Export do
   end
 
   @doc """
+  Delete the export for the given namespace and type
+  """
+  def delete(namespace, type) do
+    MS.DB.Export.delete(namespace, type)
+  end
+
+  @doc """
   Fetch the saved export for the given namespace and type.
   """
   @spec fetch(String.t(), String.t()) :: {:ok, %MS.Export{}} | {:error, :not_found}
@@ -169,11 +176,16 @@ defmodule MS.Export do
   end
 
   @doc """
-  Generate schema mappings for the given export
+  Generate schema mappings for the given export based on the collection
+  data fields. Default alphabetical sorting is applied to the schema based
+  on the collection names. Collection fields will follow a sorting order of
+  the primary key(s) such as id and then the order based on the field types
   """
   def generate_schema_mappings(export) do
-    colls = final_collection_list(export)
-    Enum.map(colls, &generate_schema_map(export.ns, &1))
+    export
+    |> final_collection_list()
+    |> Enum.map(&generate_schema_map(export.ns, &1))
+    |> Schema.sort_schemas()
   end
 
   @doc """
@@ -352,6 +364,16 @@ defmodule MS.DB.Export do
     Memento.transaction!(fn ->
       Memento.Query.all(MS.DB.Export)
     end)
+  end
+
+  def delete(ns, type) do
+    result = read(ns, type)
+
+    if Enum.count(result) > 0 do
+      Memento.transaction!(fn ->
+        Memento.Query.delete_record(Enum.at(result, 0))
+      end)
+    end
   end
 
   defp to_db(ex) do

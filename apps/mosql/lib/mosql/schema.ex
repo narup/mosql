@@ -48,10 +48,10 @@ defmodule MS.Schema do
         }
 
   @doc """
-  Return the saved schema mapping struct
+  Return the saved schema mapping struct for the given namespace and collection
   """
-  def saved_mapping(schema) do
-    mapping_key(schema, @mapping) |> Store.get()
+  def saved_schema(ns, collection) do
+    mapping_key(%{ns: ns, collection: collection}, @mapping) |> Store.get()
   end
 
   def all_collections(ns) do
@@ -170,6 +170,31 @@ defmodule MS.Schema do
     store_mappings(schema)
   end
 
+  @doc """
+  Default sorting of schemas by alphabetic ordering of the collection
+  """
+  def sort_schemas(schemas) do
+    schemas
+    |> Enum.sort_by(fn schema -> schema.collection end, :asc)
+    |> Enum.map(&sort_schema_keys(&1))
+  end
+
+  # MongoDB collection keys are not ordered by default so apply the
+  # default ordering of keys: primary key(s) first then the fields
+  # by the data type. This ordering can be changed by modifying the
+  # schema files and reimporting it
+  defp sort_schema_keys(schema) do
+    # grab id mapping so it can go to the top
+    id_mapping = Enum.filter(schema.mappings, fn mp -> mp.mongo_key == "_id" end)
+
+    sorted_mappings = Enum.sort_by(schema.mappings, fn mp -> mp.sql_type end, :asc)
+    sorted_mappings = Enum.filter(sorted_mappings, fn mp -> mp.mongo_key != "_id" end)
+
+    final_mappings = id_mapping ++ sorted_mappings
+
+    %{schema | mappings: final_mappings}
+  end
+
   defp store_mappings(schema) do
     Enum.each(schema.mappings, &store_map_items(schema, &1))
   end
@@ -215,6 +240,7 @@ defmodule MS.Schema do
   end
 
   defp store_columns(key, schema_map_item) do
+    IO.puts("columns key #{inspect(key)}: #{inspect(schema_map_item.sql_column)}")
     columns = Store.get(key)
     store(key, columns ++ [schema_map_item.sql_column])
   end

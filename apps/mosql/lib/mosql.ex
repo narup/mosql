@@ -22,8 +22,8 @@ defmodule MS.MoSQL do
        * `:exclusives` - the list of collections that must be included
 
     2. Generate export schema definitions and export to a file system
-      ex = MS.MoSQL.generate_default_schemas(export, schema_path)
-      Export.to_json(ex, schema_export_path)
+      ex = MS.MoSQL.generate_default_schemas(export, [persist: true, export_path: "schema"])
+      Export.to_json(ex, "schema")
 
     3. Reload the (updated) schema files from the path to the export
       MS.MoSQL.reload_schema_files(export, schema_path)
@@ -54,6 +54,41 @@ defmodule MS.MoSQL do
   """
   def create_postgres_export(namespace, options \\ []) do
     Export.new(namespace, @type_postgres, options)
+  end
+
+  @doc """
+  Fetch the postgres export based on the namespace and the type
+  """
+  def fetch_postgres_export(namespace) do
+    Export.fetch(namespace, @type_postgres)
+  end
+
+  @doc """
+  Loads the saved export to the schema store for the export
+  """
+  def load_postgres_export(namespace) do
+    case Export.fetch(namespace, @type_postgres) do
+      {:ok, ex} ->
+        if Enum.count(ex.schemas) > 0 do
+          Export.populate_schema_store(ex)
+          {:ok, ex}
+        else
+          {:error, "Missing schema definitions"}
+        end
+
+      {:error, :not_found} ->
+        {:error, :not_found}
+
+      _ ->
+        IO.puts("Something unexpected happened, please try again.")
+    end
+  end
+
+  @doc """
+  Removes the saved export based on the namespace and type
+  """
+  def remove_export(namespace, type) do
+    Export.delete(namespace, type)
   end
 
   @doc """

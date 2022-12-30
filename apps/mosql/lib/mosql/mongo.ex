@@ -159,13 +159,15 @@ defmodule MS.Mongo.Type do
   def typeof(a) when is_list(a), do: "map"
   def typeof(a) when is_bitstring(a), do: "string"
   def typeof(a) when is_float(a), do: "float"
+
   def typeof(a) when is_integer(a) do
     cond do
       a <= 99999 -> "small_integer"
-      a > 99999 && a <= 9999999999 -> "integer"
-      a > 9999999999 -> "big_integer"
+      a > 99999 && a <= 9_999_999_999 -> "integer"
+      a > 9_999_999_999 -> "big_integer"
     end
   end
+
   def typeof(a) when is_binary(a), do: "binary"
   def typeof(a) when is_tuple(a), do: "tuple"
   def typeof(a) when is_atom(a), do: "atom"
