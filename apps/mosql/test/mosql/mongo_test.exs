@@ -30,7 +30,11 @@ defmodule MongoTest do
     "email" => "john.doe@johndoe.com",
     "name" => "John Doe",
     "state" => "CA",
-    "zip" => "94113"
+    "zip" => "94113",
+    "functions" => [],
+    "tags" => ["mosql", "mongodb", "elixir", "broadway"],
+    "prices" => [30, 50.50, "n/a"],
+    "configs" => [%{key1: "value1", key2: "value2"}, %{key3: 20, key4: 42.99}]
   }
 
   test "mongo document lookup" do

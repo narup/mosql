@@ -113,13 +113,29 @@ defmodule MS.Mongo do
     Enum.map(map, &break_map(&1))
   end
 
-  defp to_list(list) when is_list(list), do: "list"
-  # defp to_list(v), do: v
+  # If the value is a list then it needs special handling
+  # based on the values contained in the list. If the values
+  # in the list are simple types, then just merge them to a
+  # string with comma separated values. If the values are complex
+  # types then it converts them to a JSON blob
+  defp to_list(list) when is_list(list) do
+    if Enum.all?(list, &simple_type/1) do
+      Enum.join(list, ",")
+    else
+      result = Enum.reduce(list, [], fn item, acc -> acc ++ [Poison.encode!(item)] end)
+      result = Enum.join(result, ",")
+      "[" <> result <> "]"
+    end
+  end
+
+  defp simple_type(v) do
+    is_bitstring(v) || is_float(v) || is_integer(v) || is_binary(v)
+  end
 
   defp break_map({k, v}) do
     cond do
       Type.typeof(v) == "map" -> {k, to_list(v)}
-      Type.typeof(v) == "list" -> {k, Enum.join(v, ", ")}
+      Type.typeof(v) == "list" -> {k, to_list(v)}
       true -> {k, v}
     end
   end
@@ -156,7 +172,7 @@ defmodule MS.Mongo.Type do
   def typeof(%DateTime{} = _), do: "datetime"
   def typeof(a) when is_boolean(a), do: "boolean"
   def typeof(a) when is_map(a), do: "map"
-  def typeof(a) when is_list(a), do: "map"
+  def typeof(a) when is_list(a), do: "list"
   def typeof(a) when is_bitstring(a), do: "string"
   def typeof(a) when is_float(a), do: "float"
 
