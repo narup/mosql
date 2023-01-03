@@ -32,6 +32,11 @@ config :mosql, mongo_opts: mongo_opts
 
 config :mosql, schema_files_path: "./test/fixtures"
 
+config :mosql, :full_export,
+  coll_batch_size: 60,
+  bulk_insert_size: 20,
+  skip_collections: []
+
 # config :mosql,
 #   producer_module: {MongoChangeStream, mongo_opts}
 

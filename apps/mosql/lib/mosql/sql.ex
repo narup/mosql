@@ -282,11 +282,64 @@ defmodule MS.SQL do
       |> Enum.map(&"#{&1} = EXCLUDED.#{&1}")
       |> Enum.join(", ")
 
-    values = column_values(schema, column_list, mongo_document)
+    values = column_values(schema, column_list, mongo_document) |> Enum.join(",")
 
     ~s(
       INSERT INTO #{table_name} ( #{columns} \)
       VALUES ( #{values} \)
+      ON CONFLICT ( #{primary_key} \)
+      DO UPDATE SET #{update_columns}
+    )
+  end
+
+  @doc """
+  Construct the insert values for a given schema and a mongo
+  document
+  """
+  def insert_values(schema, mongo_document \\ %{}) do
+    column_list = schema |> Schema.columns()
+    column_values(schema, column_list, mongo_document)
+  end
+
+  @doc """
+  Generates upsert SQL statement for a given schema and a list of values
+  of values
+   INSERT INTO <table_name> (column1, column2...)
+    VALUES
+    (value1, value2...),
+    (value1, value2...),
+    (value1, value2...)....
+    ON CONFLICT (primary_key_field)
+    DO UPDATE SET
+    column = EXCLUDED.column...;
+  """
+  def bulk_upsert_sql(schema, values) do
+    table_name = full_table_name(schema)
+    primary_key = Schema.primary_key(schema)
+
+    column_list = schema |> Schema.columns()
+
+    columns = Enum.join(column_list, ", ")
+
+    update_columns =
+      column_list
+      |> Enum.filter(&(!Schema.is_primary_key?(schema, &1)))
+      |> Enum.map(&"#{&1} = EXCLUDED.#{&1}")
+      |> Enum.join(", ")
+
+    all_values =
+      Enum.with_index(values)
+      |> Enum.reduce("", fn {row, index}, acc ->
+        if index < Enum.count(values) - 1 do
+          acc <> "(" <> Enum.join(row, ",") <> "),"
+        else
+          acc <> "(" <> Enum.join(row, ",") <> ")"
+        end
+      end)
+
+    ~s(
+      INSERT INTO #{table_name} ( #{columns} \)
+      VALUES #{all_values}
       ON CONFLICT ( #{primary_key} \)
       DO UPDATE SET #{update_columns}
     )
@@ -320,12 +373,34 @@ defmodule MS.SQL do
   end
 
   defp column_values(schema, columns, mongo_document) do
-    Enum.map(columns, &column_value(schema, &1, mongo_document)) |> Enum.join(", ")
+    Enum.map(columns, &column_value(schema, &1, mongo_document))
   end
 
   defp column_value(schema, column, mongo_document) do
     mongo_key = Schema.mongo_key(schema, column)
-    "'#{Map.get(mongo_document, mongo_key)}'"
+    value = Map.get(mongo_document, mongo_key)
+
+    sql_type = Schema.type(schema, column)
+
+    case sql_type do
+      "text" ->
+        "'#{value}'"
+
+      "timestamp with time zone" ->
+        "'#{value}'"
+
+      "boolean" ->
+        {
+          if is_nil(value) do
+            false
+          else
+            value
+          end
+        }
+
+      _ ->
+        value
+    end
   end
 
   defp full_table_name(schema) do

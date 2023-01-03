@@ -16,7 +16,7 @@ defmodule MS.Mongo do
   with a given batch size
   """
   def find_all(collection, batch_size) do
-    Mongo.find(:mongo, collection, %{}, batch_size: batch_size, limit: 4)
+    Mongo.find(:mongo, collection, %{}, batch_size: batch_size, limit: 400)
   end
 
   def documents(collection, query) do
