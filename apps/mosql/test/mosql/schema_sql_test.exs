@@ -114,4 +114,27 @@ defmodule MS.SchemaSQLTest do
 
     assert ["email", "zip_code"] = SQL.filter_missing_columns(schema_columns, existing_columns)
   end
+
+  test "column values", %{store: store, schema: schema} do
+    empty_values = SQL.to_insert_values(schema, %{})
+    assert empty_values == ["''", "''", "''", "''", "''"]
+
+    doc_1 = %{
+      "_id" => "6277f677b99d8078d17d5918",
+      "name" => "John Doe",
+      "email" => "john.doe@johndoe.com",
+      "zip" => "94117",
+      "created_date" => "523523525"
+    }
+
+    values_1 = SQL.to_insert_values(schema, doc_1)
+
+    assert values_1 == [
+             "'6277f677b99d8078d17d5918'",
+             "'John Doe'",
+             "'john.doe@johndoe.com'",
+             "'94117'",
+             "'523523525'"
+           ]
+  end
 end

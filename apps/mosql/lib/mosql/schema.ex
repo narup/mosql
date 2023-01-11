@@ -97,7 +97,7 @@ defmodule MS.Schema do
   Returns if the column for a schema mapping is a primary key
   """
   def is_primary_key?(schema, column) do
-    mapping_key(schema, column, @primary_key) |> Store.get_if_exists(false)
+    mapping_key(schema, column, @primary_key) |> Store.get_if_exists("") == column
   end
 
   @doc """
@@ -209,8 +209,6 @@ defmodule MS.Schema do
     mapping_key(schema, item.sql_column, @sql_type) |> store(item.sql_type)
 
     mapping_key(schema, item.sql_column, @mongo_key) |> store(item.mongo_key)
-
-    mapping_key(schema, item.sql_column, @primary_key) |> store(item.primary_key)
 
     if item.primary_key do
       mapping_key(schema, schema.table, @primary_key) |> store(item.sql_column)

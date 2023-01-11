@@ -296,7 +296,7 @@ defmodule MS.SQL do
   Construct the insert values for a given schema and a mongo
   document
   """
-  def insert_values(schema, mongo_document \\ %{}) do
+  def to_insert_values(schema, mongo_document \\ %{}) do
     column_list = schema |> Schema.columns()
     column_values(schema, column_list, mongo_document)
   end
@@ -320,6 +320,10 @@ defmodule MS.SQL do
     column_list = schema |> Schema.columns()
 
     columns = Enum.join(column_list, ", ")
+
+    if table_name == "public.cs" do
+      IO.inspect(values)
+    end
 
     update_columns =
       column_list
@@ -380,28 +384,15 @@ defmodule MS.SQL do
     mongo_key = Schema.mongo_key(schema, column)
     value = Map.get(mongo_document, mongo_key)
 
-    sql_type = Schema.type(schema, column)
-
-    case sql_type do
-      "text" ->
-        "'#{value}'"
-
-      "timestamp with time zone" ->
-        "'#{value}'"
-
-      "boolean" ->
-        {
-          if is_nil(value) do
-            false
-          else
-            value
-          end
-        }
-
-      _ ->
-        value
-    end
+    schema |> Schema.type(column) |> sql_value(value)
   end
+
+  defp sql_value(_sql_type = "text", value), do: "'#{value}'"
+  defp sql_value(_sql_type = "timestamp with time zone", value), do: "'#{value}'"
+  defp sql_value(_sql_type = "boolean", value) when is_nil(value), do: "'false'"
+  defp sql_value(_sql_type = "boolean", value), do: "'#{value}'"
+  defp sql_value(_sql_type = "varchar" <> _rest, value), do: "'#{value}'"
+  defp sql_value(_sql_type = _, value), do: Kernel.inspect(value)
 
   defp full_table_name(schema) do
     schema_name = Schema.schema_name(schema)
