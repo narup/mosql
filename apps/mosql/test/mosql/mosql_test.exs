@@ -108,4 +108,46 @@ defmodule MS.MSTest do
         assert false, err
     end
   end
+
+  test "test sql type values", %{store: schema_store} do
+    case Schema.load_collection("types") do
+      {:ok, schema} ->
+        assert true, "types schema loaded"
+
+        Logger.info("Loaded Schema: #{inspect(schema)}")
+        Logger.info("Schema store pid #{inspect(schema_store)}")
+
+        Schema.init_schema_store("mosql")
+        Schema.populate_schema_store(schema)
+
+        Logger.info("Columns: #{inspect(Schema.columns(schema))}")
+
+        values_doc = %{
+          "_id" => "6277f677b99d8078d17d5918",
+          "typeVarchar" => "JohnLongFirstName DoelongLastName",
+          "typeBoolean" => true,
+          "typeSmallInt" => 99999,
+          "typeInteger" => 999_999,
+          "typeBigInt" => 99_999_999_999,
+          "typeNumeric" => 40.24,
+          "created_date" => "2022-11-21 12:12:47.895-05"
+        }
+
+        row_values = MS.SQL.to_insert_values(schema, values_doc)
+        IO.puts("Row values: #{inspect(row_values)}")
+        assert row_values == [
+                 "'6277f677b99d8078d17d5918'",
+                 "'JohnLongFirstName DoelongLastName'",
+                 "'true'",
+                 "99999",
+                 "999999",
+                 "99999999999",
+                 "40.24",
+                 "'2022-11-21 12:12:47.895-05'"
+               ]
+
+      {:error, err} ->
+        assert false, err
+    end
+  end
 end

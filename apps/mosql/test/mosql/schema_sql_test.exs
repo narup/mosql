@@ -115,7 +115,7 @@ defmodule MS.SchemaSQLTest do
     assert ["email", "zip_code"] = SQL.filter_missing_columns(schema_columns, existing_columns)
   end
 
-  test "column values", %{store: store, schema: schema} do
+  test "column values", %{schema: schema} do
     empty_values = SQL.to_insert_values(schema, %{})
     assert empty_values == ["''", "''", "''", "''", "''"]
 
