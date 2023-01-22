@@ -33,3 +33,5 @@ producer_output.md
 .elixir_ls/
 /.mnesia
 /formatter.exs
+mix.lock 
+.formatter.exs
