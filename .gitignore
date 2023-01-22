@@ -32,3 +32,4 @@ STATUS.md
 producer_output.md
 .elixir_ls/
 /.mnesia
+/formatter.exs
