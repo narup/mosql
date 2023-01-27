@@ -64,10 +64,6 @@ defmodule Mosql.Export do
   """
   @spec setup!(nodes :: list(node)) :: :ok
   def setup!(nodes \\ [node()]) do
-
-    db_path = ".mnesia/#{node()}"
-    File.mkdir_p!(db_path)
-
     # Create the Schema
     Memento.stop()
     Memento.Schema.create(nodes)
