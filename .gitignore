@@ -11,3 +11,6 @@ erl_crash.dump
 mosql.env 
 .DS_Store
 mix.lock 
+.mnesia
+.elixir_ls/
+doc/
