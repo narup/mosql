@@ -8,11 +8,12 @@ erl_crash.dump
 *.beam
 /config/*.secret.exs
 .elixir_ls/
-mosql.env 
+mosql.env
 .DS_Store
-mix.lock 
+mix.lock
 .mnesia
 .elixir_ls/
 doc/
 Mnesia.nonode@nohost
 STATUS.md
+.zed/

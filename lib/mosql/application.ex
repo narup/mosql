@@ -8,13 +8,14 @@ defmodule Mosql.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      # Start the Ecto repository
-      Mosql.Repo,
-      # Start the Telemetry supervisor
       MosqlWeb.Telemetry,
-      # Start the PubSub system
+      {DNSCluster, query: Application.get_env(:mosql, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Mosql.PubSub},
-      # Start the Endpoint (http/https)
+      # Start the Finch HTTP client for sending emails
+      {Finch, name: Mosql.Finch},
+      # Start a worker by calling: Mosql.Worker.start_link(arg)
+      # {Mosql.Worker, arg},
+      # Start to serve requests, typically the last entry
       MosqlWeb.Endpoint,
       # Start a worker by calling: Mosql.Worker.start_link(arg)
       {Mosql.ExportSupervisor, []}

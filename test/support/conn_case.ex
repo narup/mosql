@@ -19,20 +19,19 @@ defmodule MosqlWeb.ConnCase do
 
   using do
     quote do
+      # The default endpoint for testing
+      @endpoint MosqlWeb.Endpoint
+
+      use MosqlWeb, :verified_routes
+
       # Import conveniences for testing with connections
       import Plug.Conn
       import Phoenix.ConnTest
       import MosqlWeb.ConnCase
-
-      alias MosqlWeb.Router.Helpers, as: Routes
-
-      # The default endpoint for testing
-      @endpoint MosqlWeb.Endpoint
     end
   end
 
-  setup tags do
-    Mosql.DataCase.setup_sandbox(tags)
+  setup _tags do
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
 end

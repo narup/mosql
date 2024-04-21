@@ -116,7 +116,7 @@ defmodule Mosql do
   Starts the Mosql server process. For individual processes see - `start_mongo/1`, `start_postgres/1`,
   `start_full_export_process/1`, and `start_change_stream_process/1`
   """
-  def start(opts \\[mongo_opts: [], postgres_opts: [], full_export_opts: []]) do
+  def start(opts \\ [mongo_opts: [], postgres_opts: [], full_export_opts: []]) do
     start_mongo(opts[:mongo_opts])
     start_postgres(opts[:postgres_opts])
     start_full_export_process(opts[:full_export_opts])

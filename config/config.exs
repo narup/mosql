@@ -8,14 +8,18 @@
 import Config
 
 config :mosql,
-  ecto_repos: [Mosql.Repo]
+  generators: [timestamp_type: :utc_datetime]
 
 # Configures the endpoint
 config :mosql, MosqlWeb.Endpoint,
   url: [host: "localhost"],
-  render_errors: [view: MosqlWeb.ErrorView, accepts: ~w(html json), layout: false],
+  adapter: Bandit.PhoenixAdapter,
+  render_errors: [
+    formats: [html: MosqlWeb.ErrorHTML, json: MosqlWeb.ErrorJSON],
+    layout: false
+  ],
   pubsub_server: Mosql.PubSub,
-  live_view: [signing_salt: "ZRn8j9+C"]
+  live_view: [signing_salt: "eV6aMOxY"]
 
 # Configures the mailer
 #
@@ -26,17 +30,26 @@ config :mosql, MosqlWeb.Endpoint,
 # at the `config/runtime.exs`.
 config :mosql, Mosql.Mailer, adapter: Swoosh.Adapters.Local
 
-# Swoosh API client is needed for adapters other than SMTP.
-config :swoosh, :api_client, false
-
 # Configure esbuild (the version is required)
 config :esbuild,
-  version: "0.14.29",
-  default: [
+  version: "0.17.11",
+  mosql: [
     args:
       ~w(js/app.js --bundle --target=es2017 --outdir=../priv/static/assets --external:/fonts/* --external:/images/*),
     cd: Path.expand("../assets", __DIR__),
     env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
+  ]
+
+# Configure tailwind (the version is required)
+config :tailwind,
+  version: "3.4.0",
+  mosql: [
+    args: ~w(
+      --config=tailwind.config.js
+      --input=css/app.css
+      --output=../priv/static/assets/app.css
+    ),
+    cd: Path.expand("../assets", __DIR__)
   ]
 
 # Configures Elixir's Logger
