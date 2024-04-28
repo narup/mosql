@@ -1,0 +1,40 @@
+{
+    "collection": "users",
+    "table": "user",
+    "name": "schema",
+    "indexes": [
+        "email"
+    ],
+    "mappings": [
+        {
+            "mongo_key": "_id",
+            "sql_column": "id",
+            "sql_type": "text"
+        },
+        {
+            "mongo_key": "name",
+            "sql_column": "full_name",
+            "sql_type": "text"
+        },
+        {
+            "mongo_key": "email",
+            "sql_column": "email",
+            "sql_type": "text"
+        },
+        {
+            "mongo_key": "zip",
+            "sql_column": "zip_code",
+            "sql_type": "text"
+        },
+        {
+            "mongo_key": "zip",
+            "sql_column": "zip_code",
+            "sql_type": "text"
+        },
+        {
+            "mongo_key": "created_date",
+            "sql_column": "created_date",
+            "sql_type": "timestamp with time zone"
+        }
+    ]
+}
