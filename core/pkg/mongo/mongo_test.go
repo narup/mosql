@@ -1,4 +1,4 @@
-package core
+package mongo
 
 import (
 	"context"
@@ -110,5 +110,5 @@ func buildTestDocument() *testDocument {
 }
 
 func test_setup() {
-	InitMongoConnection(context.TODO(), "mongodb://localhost:27017/", "mosql")
+	InitConnection(context.TODO(), "mongodb://localhost:27017/", "mosql")
 }

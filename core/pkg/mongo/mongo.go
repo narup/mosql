@@ -1,4 +1,4 @@
-package core
+package mongo
 
 import (
 	"context"
@@ -45,7 +45,7 @@ func stringID(ID interface{}) string {
 	return ""
 }
 
-func InitMongoConnection(ctx context.Context, uri, dbName string) error {
+func InitConnection(ctx context.Context, uri, dbName string) error {
 	if db != nil {
 		return errors.New("db already connected")
 	}
