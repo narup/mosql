@@ -1,19 +1,23 @@
-_build/
-cover/
-deps/
-/doc
-/.fetch
-erl_crash.dump
-*.ez
-*.beam
-/config/*.secret.exs
-.elixir_ls/
-mosql.env
 .DS_Store
-mix.lock
-.mnesia
-.elixir_ls/
 doc/
-Mnesia.nonode@nohost
 STATUS.md
 .zed/
+
+
+# Added by cargo
+
+/target
+
+
+# Added by cargo
+#
+# already existing elements were commented out
+
+#/target
+
+
+# Added by cargo
+#
+# already existing elements were commented out
+
+#/target
