@@ -1,14 +1,15 @@
+use crate::mongo::Connection;
 use derive_more::Display;
 use mongodb::{
-    bson::{Bson, Document},
+    bson::{spec::ElementType, Bson, Document},
     sync::Collection,
 };
-
-use self::mongo::Connection;
+use std::collections::HashMap;
 
 #[derive(Debug, Display)]
 pub enum MoSQLError {
     MongoConnectionError(String),
+    MongoQueryError(String),
 }
 
 pub fn setup(uri: &str, db_name: &str) -> Connection {
@@ -20,186 +21,68 @@ pub fn new_export() {
     println!("new export")
 }
 
-pub fn generate_schema_mapping(conn: Connection, collection: &str) {
+pub fn generate_schema_mapping(conn: Connection, collection: &str) -> Result<(), MoSQLError> {
     println!("Generating schema mapping...");
 
     let coll: Collection<Document> = conn.collection(collection);
 
-    let cursor = coll.find_one(None, None).unwrap();
-    if let Some(result) = cursor.iter().next() {
-        // Access fields in the document by key
-        println!("Result:{:?}", result);
-        if let Some(field) = result.get("name") {
-            match field {
-                Bson::String(s) => println!("String field: {}", s),
-                Bson::Int32(i) => println!("Int32 field: {}", i),
-                // Handle other types as needed
-                _ => println!("Other field: {:?}", field),
-            }
+    let result = match coll.find_one(None, None) {
+        Ok(it) => it,
+        Err(err) => {
+            return Err(MoSQLError::MongoQueryError(format!(
+                "error finding the document: {}",
+                err
+            )))
         }
-    }
-}
-
-//Mongo module to handle all the MongoDB related operations
-mod mongo {
-
-    use mongodb::{
-        bson::doc,
-        error::Result,
-        options::{ClientOptions, ServerApi, ServerApiVersion},
-        sync::{Client, Collection, Database},
     };
 
-    pub struct Connection {
-        sync_client: Client,
-        db: Database,
+    let mut final_map: HashMap<String, Bson> = HashMap::new();
+    if let Some(doc) = result {
+        create_flat_map(&mut final_map, collection.to_string(), &doc);
     }
 
-    impl Connection {
-        pub fn new(uri: &str, db_name: &str) -> Self {
-            let client = match connect(uri) {
-                Ok(client) => client,
-                Err(e) => panic!("Error connecting to mongo: {}", e),
-            };
-
-            let db = client.database(db_name);
-            Self {
-                sync_client: client,
-                db,
-            }
-        }
-
-        pub fn ping(&self) -> bool {
-            match self
-                .sync_client
-                .database(self.db.name())
-                .run_command(doc! { "ping": 1 }, None)
-            {
-                Ok(_) => {
-                    println!("Database pinged. Connected!");
-                    return true;
-                }
-                Err(e) => {
-                    println!("Error connecting to database:{}", e);
-                    return false;
-                }
-            }
-        }
-
-        pub fn collection<T>(&self, name: &str) -> Collection<T> {
-            return self.db.collection(name);
-        }
+    for (key, value) in final_map.iter() {
+        println!("{}===>{:?}", key, value);
     }
 
-    fn connect(uri: &str) -> Result<Client> {
-        println!("Connecting to MongoDB...");
-        let mut client_options = ClientOptions::parse(uri)?;
-
-        // Set the server_api field of the client_options object to Stable API version 1
-        let server_api = ServerApi::builder().version(ServerApiVersion::V1).build();
-        client_options.server_api = Some(server_api);
-
-        // Create a new client and connect to the server
-        return Client::with_options(client_options);
-    }
+    Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use chrono::Utc;
-    use mongodb::bson::{doc, DateTime};
-    use mongodb::sync::Collection;
-    use std::collections::HashMap;
+fn create_flat_map(flat_map: &mut HashMap<String, Bson>, prefix: String, doc: &Document) {
+    for key in doc.keys() {
+        if let Some(val) = doc.get(key) {
+            let new_key = format!("{}.{}", prefix, key.to_string());
 
-    use super::*;
-    use serde::{Deserialize, Serialize};
-
-    #[derive(Debug, Serialize, Deserialize)]
-    struct TestDocument {
-        name: String,
-        email: String,
-        city: String,
-        phone_number: String,
-        is_active: bool,
-        int_value: i32,
-        long_int_value: i64,
-        decimal_value: f64,
-        tags: Vec<String>,
-        attrs: HashMap<String, String>,
-        created_date: DateTime,
-        company: Company,
-    }
-
-    #[derive(Serialize, Deserialize, Debug)]
-    struct Company {
-        #[serde(rename = "name")]
-        name: String,
-        #[serde(rename = "website_url")]
-        website: String,
-        #[serde(rename = "company_address")]
-        address: Address,
-    }
-
-    #[derive(Serialize, Deserialize, Debug)]
-    struct Address {
-        #[serde(rename = "street1")]
-        street: String,
-        #[serde(rename = "zip_code")]
-        zipcode: String,
-        state: String,
-        residence: bool,
-    }
-
-    #[test]
-    fn test_mongo_setup() {
-        let conn: mongo::Connection = setup();
-        let doc = build_test_document();
-
-        let coll: Collection<TestDocument> = conn.collection("test_collection");
-        let res = coll.insert_one(doc, None).expect("insert failed ");
-        assert_ne!(res.inserted_id.to_string(), "");
-    }
-
-    fn build_test_document() -> TestDocument {
-        let mut attrs_value = HashMap::new();
-        attrs_value.insert("key1".to_string(), "value1".to_string());
-        attrs_value.insert("key2".to_string(), "value2".to_string());
-
-        // Convert the timestamp to a BSON DateTime
-        let now = DateTime::now();
-
-        let doc = TestDocument {
-            name: "John Doe".to_string(),
-            email: "john.doe@mosql.io".to_string(),
-            city: "San Francisco".to_string(),
-            phone_number: "1112221111".to_string(),
-            is_active: true,
-            int_value: 21,
-            long_int_value: 20000000,
-            decimal_value: 304.135,
-            tags: vec![
-                "tag_a".to_string(),
-                "tag_b".to_string(),
-                "tag_c".to_string(),
-            ],
-            attrs: attrs_value,
-            created_date: now,
-            company: Company {
-                name: "MoSQL, Inc".to_string(),
-                website: "https://mosql.io".to_string(),
-                address: Address {
-                    street: "123 Mosql lane".to_string(),
-                    zipcode: "94111".to_string(),
-                    state: "CA".to_string(),
-                    residence: false,
-                },
-            },
-        };
-
-        return doc;
-    }
-
-    fn setup() -> mongo::Connection {
-        return mongo::Connection::new("mongodb://localhost:27017", "mosql");
+            match val.element_type() {
+                ElementType::EmbeddedDocument => {
+                    println!("embedded document found, create nested keys");
+                    if let Some(embeded_doc) = val.as_document() {
+                        create_flat_map(flat_map, new_key, embeded_doc)
+                    }
+                }
+                ElementType::Double
+                | ElementType::String
+                | ElementType::Array
+                | ElementType::Binary
+                | ElementType::Undefined
+                | ElementType::ObjectId
+                | ElementType::Boolean
+                | ElementType::DateTime
+                | ElementType::Null
+                | ElementType::RegularExpression
+                | ElementType::DbPointer
+                | ElementType::JavaScriptCode
+                | ElementType::Symbol
+                | ElementType::JavaScriptCodeWithScope
+                | ElementType::Int32
+                | ElementType::Timestamp
+                | ElementType::Int64
+                | ElementType::Decimal128
+                | ElementType::MaxKey
+                | ElementType::MinKey => {
+                    flat_map.insert(new_key, val.to_owned());
+                }
+            }
+        }
     }
 }

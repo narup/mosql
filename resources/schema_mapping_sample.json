@@ -1,0 +1,68 @@
+{
+  "ns": "mosql",
+  "collection": "mongo_collection_name",
+  "table": "postgres_table_name",
+  "indexes": ["email"],
+  "mappings": [
+    {
+      "mongo_key": "_id",
+      "sql_column": "id",
+      "sql_type": "text"
+    },
+    {
+      "mongo_key": "name",
+      "sql_column": "full_name",
+      "sql_type": "text"
+    },
+    {
+      "mongo_key": "email",
+      "sql_column": "email",
+      "sql_type": "text"
+    },
+    {
+      "mongo_key": "city",
+      "sql_column": "city",
+      "sql_type": "text"
+    },
+    {
+      "mongo_key": "state",
+      "sql_column": "state",
+      "sql_type": "text"
+    },
+    {
+      "mongo_key": "zip",
+      "sql_column": "zip_code",
+      "sql_type": "text"
+    },
+    {
+      "mongo_key": "attributes.communicationChannels.email",
+      "sql_column": "comm_channel_email",
+      "sql_type": "text"
+    },
+    {
+      "mongo_key": "attributes.communicationChannels.phone",
+      "sql_column": "comm_channel_phone",
+      "sql_type": "text"
+    },
+    {
+      "mongo_key": "attributes.phoneNumberVerified",
+      "sql_column": "phone_comm_verified",
+      "sql_type": "boolean"
+    },
+    {
+      "mongo_key": "attributes.communicationPrefs",
+      "sql_column": "comm_pref",
+      "sql_type": "text"
+    },
+    {
+      "mongo_key": "attributes.skipTutorial",
+      "sql_column": "skip_tutorial",
+      "sql_type": "boolean"
+    },
+    {
+      "mongo_key": "created_date",
+      "sql_column": "created_date",
+      "sql_type": "timestamp with time zone"
+    }
+  ]
+}

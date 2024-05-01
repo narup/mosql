@@ -1,4 +1,5 @@
 mod export;
+mod mongo;
 
 fn main() {
     println!("Starting MoSQL...");
