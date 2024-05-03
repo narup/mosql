@@ -67,7 +67,6 @@ mod tests {
     use mongodb::sync::Collection;
     use std::collections::HashMap;
 
-    use super::*;
     use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Serialize, Deserialize)]
