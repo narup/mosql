@@ -1,32 +1,22 @@
-mod core;
-mod export;
-mod mongo;
+use futures::executor;
 
-use async_std::task;
-use migration::{Migrator, MigratorTrait};
-use sea_orm::DatabaseConnection;
+mod core;
+mod mongo;
+mod mosql;
 
 fn main() {
     println!("Starting MoSQL...");
 
-    let mongo_conn = export::setup("mongodb://localhost:27017", "mosql");
+    //source database - mongo
+    let mongo_conn = mongo::setup_connection("mongodb://localhost:27017", "mosql");
     assert!(mongo_conn.ping());
 
-    let _ = export::generate_schema_mapping(mongo_conn, "test_collection");
-    export::new_export();
+    //sqlite used for mosql specific data
+    let sqlite_conn = core::setup_db_connection();
+    assert!(sqlite_conn.ping());
 
-    let conn_result = task::block_on(async {
-        let database_url = "sqlite://data.db?mode=rwc";
-        match async_function(&database_url).await {
-            Ok(sqlite_conn) => return sqlite_conn,
-            Err(err) => panic!("Error connecting to sqlite {}", err),
-        }
-    });
-}
+    let _ = mosql::generate_schema_mapping(mongo_conn, "test_collection");
 
-async fn async_function(database_url: &str) -> Result<DatabaseConnection, sea_orm::DbErr> {
-    let connection = sea_orm::Database::connect(database_url).await?;
-    Migrator::up(&connection, None).await?;
-
-    return Ok(connection);
+    let f = mosql::new_export(sqlite_conn);
+    executor::block_on(f);
 }

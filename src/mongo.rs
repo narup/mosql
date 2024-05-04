@@ -11,6 +11,11 @@ pub struct Connection {
     db: Database,
 }
 
+pub fn setup_connection(uri: &str, db_name: &str) -> Connection {
+    let conn = Connection::new(uri, db_name);
+    return conn;
+}
+
 impl Connection {
     pub fn new(uri: &str, db_name: &str) -> Self {
         let client = match connect(uri) {
