@@ -1,48 +1,18 @@
 use crate::core;
 use crate::mongo;
 
-use ::entity::export;
-use chrono::Utc;
 use derive_more::Display;
 use mongodb::{
     bson::{spec::ElementType, Bson, Document},
     sync::Collection,
 };
-use sea_orm::*;
-use std::collections::HashMap;
 
-use ::entity::prelude::*;
+use std::collections::HashMap;
 
 #[derive(Debug, Display)]
 pub enum MoSQLError {
     MongoConnectionError(String),
     MongoQueryError(String),
-}
-
-pub async fn new_export(conn: core::Connection) {
-    println!("new export");
-
-    let exports: Vec<export::Model> = Export::find()
-        .all(&conn.conn)
-        .await
-        .expect("should not be empty");
-
-    assert_eq!(exports.len(), 1);
-
-    let new_export = export::ActiveModel {
-        namespace: Set("mosql".to_string()),
-        r#type: Set("mongo_to_postgres".to_string()),
-        created_at: Set(Utc::now().to_rfc3339()),
-        updated_at: Set(Utc::now().to_rfc3339()),
-        source_connection_id: Set(1),
-        destination_connection_id: Set(1),
-        exclude_filters: Set(Some("".to_string())),
-        include_filters: Set(Some("".to_string())),
-        creator_id: Set(1),
-        updator_id: Set(1),
-        ..Default::default()
-    };
-    println!("new export {:?}", new_export);
 }
 
 pub fn generate_schema_mapping(
