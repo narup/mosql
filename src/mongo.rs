@@ -6,33 +6,33 @@ use mongodb::{
     sync::{Client, Collection, Database},
 };
 
-pub struct Connection {
-    sync_client: Client,
+pub struct DBClient {
+    sync_conn: Client,
     db: Database,
 }
 
-pub fn setup_connection(uri: &str, db_name: &str) -> Connection {
-    let conn = Connection::new(uri, db_name);
+pub fn setup_client(uri: &str, db_name: &str) -> DBClient {
+    let conn = DBClient::new(uri, db_name);
     return conn;
 }
 
-impl Connection {
+impl DBClient {
     pub fn new(uri: &str, db_name: &str) -> Self {
-        let client = match connect(uri) {
-            Ok(client) => client,
+        let conn = match connect(uri) {
+            Ok(conn) => conn,
             Err(e) => panic!("Error connecting to mongo: {}", e),
         };
 
-        let db = client.database(db_name);
+        let db = conn.database(db_name);
         Self {
-            sync_client: client,
+            sync_conn: conn,
             db,
         }
     }
 
     pub fn ping(&self) -> bool {
         match self
-            .sync_client
+            .sync_conn
             .database(self.db.name())
             .run_command(doc! { "ping": 1 }, None)
         {
@@ -112,10 +112,10 @@ mod tests {
 
     #[test]
     fn test_mongo_setup() {
-        let conn: mongo::Connection = setup();
+        let db_client: mongo::DBClient = setup();
         let doc = build_test_document();
 
-        let coll: Collection<TestDocument> = conn.collection("test_collection");
+        let coll: Collection<TestDocument> = db_client.collection("test_collection");
         let res = coll.insert_one(doc, None).expect("insert failed ");
         assert_ne!(res.inserted_id.to_string(), "");
     }
@@ -159,7 +159,7 @@ mod tests {
         return doc;
     }
 
-    fn setup() -> mongo::Connection {
-        return mongo::Connection::new("mongodb://localhost:27017", "mosql");
+    fn setup() -> mongo::DBClient {
+        return mongo::DBClient::new("mongodb://localhost:27017", "mosql");
     }
 }

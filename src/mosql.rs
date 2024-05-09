@@ -7,6 +7,7 @@ use mongodb::{
     sync::Collection,
 };
 
+use async_std::task;
 use std::collections::HashMap;
 
 #[derive(Debug, Display)]
@@ -15,35 +16,62 @@ pub enum MoSQLError {
     MongoQueryError(String),
 }
 
-pub fn generate_schema_mapping(
-    conn: mongo::Connection,
-    collection: &str,
-) -> Result<(), MoSQLError> {
-    println!("Generating schema mapping...");
-
-    let coll: Collection<Document> = conn.collection(collection);
-
-    let result = match coll.find_one(None, None) {
-        Ok(it) => it,
-        Err(err) => {
-            return Err(MoSQLError::MongoQueryError(format!(
-                "error finding the document: {}",
-                err
-            )))
-        }
-    };
-
-    let mut final_map: HashMap<String, Bson> = HashMap::new();
-    if let Some(doc) = result {
-        create_flat_map(&mut final_map, collection.to_string(), &doc);
-    }
-
-    for (key, value) in final_map.iter() {
-        println!("{}===>{:?}", key, value);
-    }
-
-    Ok(())
+pub struct Exporter {
+    sqlite_client: core::SQLiteClient,
+    mongo_client: mongo::DBClient,
+    export_builder: core::ExportBuilder,
 }
+
+impl Exporter {
+    pub fn new(namespace: String, export_type: String) -> Self {
+        //source database - mongo
+        let mongo_client = mongo::setup_client("mongodb://localhost:27017", "mosql");
+        assert!(mongo_client.ping());
+
+        //sqlite used for mosql specific data
+        let sqlite_client = core::setup_sqlite_client();
+        assert!(sqlite_client.ping());
+
+        let export_builder = core::ExportBuilder::init_new_export(namespace, export_type);
+        Self {
+            sqlite_client,
+            mongo_client,
+            export_builder,
+        }
+    }
+
+    pub fn generate_schema_mapping(&self, collection: &str) -> Result<(), MoSQLError> {
+        println!("Generating schema mapping...");
+
+        let coll: Collection<Document> = self.mongo_client.collection(collection);
+        let result = match coll.find_one(None, None) {
+            Ok(it) => it,
+            Err(err) => {
+                return Err(MoSQLError::MongoQueryError(format!(
+                    "error finding the document: {}",
+                    err
+                )))
+            }
+        };
+
+        let mut final_map: HashMap<String, Bson> = HashMap::new();
+        if let Some(doc) = result {
+            create_flat_map(&mut final_map, collection.to_string(), &doc);
+        }
+
+        for (key, value) in final_map.iter() {
+            println!("{}===>{:?}", key, value);
+        }
+
+        Ok(())
+    }
+
+    pub fn save(&self) {
+        let _ = task::block_on(self.export_builder.save(&self.sqlite_client));
+    }
+}
+
+// ----- all the private utility functions below
 
 fn create_flat_map(flat_map: &mut HashMap<String, Bson>, prefix: String, doc: &Document) {
     for key in doc.keys() {

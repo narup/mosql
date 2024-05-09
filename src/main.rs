@@ -5,13 +5,12 @@ mod mosql;
 fn main() {
     println!("Starting MoSQL...");
 
-    //source database - mongo
-    let mongo_conn = mongo::setup_connection("mongodb://localhost:27017", "mosql");
-    assert!(mongo_conn.ping());
+    let exporter = mosql::Exporter::new("mosql".to_string(), "postgres".to_string());
 
-    //sqlite used for mosql specific data
-    let sqlite_client = core::setup_sqlite_client();
-    assert!(sqlite_client.ping());
+    match exporter.generate_schema_mapping("test_collection") {
+        Ok(_) => print!("success"),
+        Err(err) => print!("Error {}", err),
+    }
 
-    let _ = mosql::generate_schema_mapping(mongo_conn, "test_collection");
+    exporter.save();
 }

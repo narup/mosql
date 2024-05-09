@@ -42,30 +42,21 @@ impl SQLiteClient {
 
 pub struct ExportBuilder {
     entity: export::ActiveModel,
-    sql_client: SQLiteClient,
 }
 
 impl ExportBuilder {
-    pub fn init_new(
-        db_client: SQLiteClient,
-        namespace: String,
-        export_type: String,
-        creator: user::Model,
-    ) -> ExportBuilder {
+    pub fn init_new_export(namespace: String, export_type: String) -> ExportBuilder {
         let entity = export::ActiveModel {
             namespace: Set(namespace),
             r#type: Set(export_type),
-            creator_id: Set(creator.id),
-            updator_id: Set(creator.id),
+            creator_id: Set(999999),
+            updator_id: Set(999999),
             created_at: Set(Utc::now().to_rfc3339()),
             updated_at: Set(Utc::now().to_rfc3339()),
             ..Default::default()
         };
 
-        return ExportBuilder {
-            sql_client: db_client,
-            entity,
-        };
+        return ExportBuilder { entity };
     }
 
     pub fn add_connection(
@@ -99,8 +90,8 @@ impl ExportBuilder {
         return self;
     }
 
-    pub async fn save(self, db_client: SQLiteClient) -> Result<export::Model, DbErr> {
-        return self.entity.insert(&db_client.conn).await;
+    pub async fn save(&self, db_client: &SQLiteClient) -> Result<export::Model, DbErr> {
+        return self.entity.clone().insert(&db_client.conn).await;
     }
 }
 
