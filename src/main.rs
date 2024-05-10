@@ -12,7 +12,7 @@ fn main() {
         "postgres://...",
     );
 
-    match exporter.generate_schema_mapping("test_collection") {
+    match exporter.generate_schema_mapping("test_collection".to_string()) {
         Ok(_) => print!("success"),
         Err(err) => print!("Error {}", err),
     }

@@ -1,7 +1,9 @@
+use std::collections::HashMap;
+use std::error::Error;
+
 //Mongo module to handle all the MongoDB related operations
 use mongodb::{
-    bson::doc,
-    error::Result,
+    bson::{doc, spec::ElementType, Bson, Document},
     options::{ClientOptions, ServerApi, ServerApiVersion},
     sync::{Client, Collection, Database},
 };
@@ -49,12 +51,30 @@ impl DBClient {
         }
     }
 
-    pub fn collection<T>(&self, name: &str) -> Collection<T> {
-        return self.db.collection(name);
+    pub fn collection<T>(&self, name: String) -> Collection<T> {
+        return self.db.collection(name.as_str());
+    }
+
+    pub fn generate_collection_flat_map(
+        &self,
+        collection_name: String,
+    ) -> Result<HashMap<String, Bson>, Box<dyn Error>> {
+        let coll: Collection<Document> = self.collection(collection_name.clone());
+        let result = match coll.find_one(None, None) {
+            Ok(it) => it,
+            Err(err) => return Err(format!("error finding the document: {}", err).into()),
+        };
+
+        let mut final_map: HashMap<String, Bson> = HashMap::new();
+        if let Some(doc) = result {
+            create_flat_map(&mut final_map, collection_name, &doc);
+        }
+
+        return Ok(final_map);
     }
 }
 
-fn connect(uri: &str) -> Result<Client> {
+fn connect(uri: &str) -> mongodb::error::Result<Client> {
     println!("Connecting to MongoDB...");
     let mut client_options = ClientOptions::parse(uri)?;
 
@@ -64,6 +84,46 @@ fn connect(uri: &str) -> Result<Client> {
 
     // Create a new client and connect to the server
     return Client::with_options(client_options);
+}
+
+//private functions ---
+fn create_flat_map(flat_map: &mut HashMap<String, Bson>, prefix: String, doc: &Document) {
+    for key in doc.keys() {
+        if let Some(val) = doc.get(key) {
+            let new_key = format!("{}.{}", prefix, key.to_string());
+
+            match val.element_type() {
+                ElementType::EmbeddedDocument => {
+                    println!("embedded document found, create nested keys");
+                    if let Some(embeded_doc) = val.as_document() {
+                        create_flat_map(flat_map, new_key, embeded_doc)
+                    }
+                }
+                ElementType::Double
+                | ElementType::String
+                | ElementType::Array
+                | ElementType::Binary
+                | ElementType::Undefined
+                | ElementType::ObjectId
+                | ElementType::Boolean
+                | ElementType::DateTime
+                | ElementType::Null
+                | ElementType::RegularExpression
+                | ElementType::DbPointer
+                | ElementType::JavaScriptCode
+                | ElementType::Symbol
+                | ElementType::JavaScriptCodeWithScope
+                | ElementType::Int32
+                | ElementType::Timestamp
+                | ElementType::Int64
+                | ElementType::Decimal128
+                | ElementType::MaxKey
+                | ElementType::MinKey => {
+                    flat_map.insert(new_key, val.to_owned());
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -117,7 +177,7 @@ mod tests {
         let db_client: mongo::DBClient = setup();
         let doc = build_test_document();
 
-        let coll: Collection<TestDocument> = db_client.collection("test_collection");
+        let coll: Collection<TestDocument> = db_client.collection("test_collection".to_string());
         let res = coll.insert_one(doc, None).expect("insert failed ");
         assert_ne!(res.inserted_id.to_string(), "");
     }
