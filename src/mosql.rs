@@ -6,8 +6,7 @@ use derive_more::Display;
 
 #[derive(Debug, Display)]
 pub enum MoSQLError {
-    MongoConnectionError(String),
-    MongoQueryError(String),
+    MongoError(String),
 }
 
 pub struct Exporter {
@@ -54,7 +53,7 @@ impl Exporter {
                     println!("{}===>{:?}", key, value);
                 }
             }
-            Err(err) => return Err(MoSQLError::MongoQueryError(err.to_string())),
+            Err(err) => return Err(MoSQLError::MongoError(err.to_string())),
         };
 
         Ok(())
