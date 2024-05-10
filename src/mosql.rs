@@ -23,14 +23,25 @@ pub struct Exporter {
 }
 
 impl Exporter {
-    pub fn new(namespace: String, export_type: String) -> Self {
+    pub fn new(
+        namespace: &str,
+        export_type: &str,
+        source_db_uri: &str,
+        destination_db_uri: &str,
+    ) -> Self {
         //source database - mongo
-        let mongo_client = mongo::setup_client("mongodb://localhost:27017", "mosql");
+        let mongo_client = mongo::setup_client(source_db_uri);
         assert!(mongo_client.ping());
 
+        println!("connected to source database {}", source_db_uri);
+
+        println!("connected to destination database {}", destination_db_uri);
+
         //sqlite used for mosql specific data
-        let sqlite_client = core::setup_sqlite_client();
+        let sqlite_client = core::setup_sqlite_client("mosql");
         assert!(sqlite_client.ping());
+
+        println!("mosql core sqlite database setup complete");
 
         let export_builder = core::ExportBuilder::init_new_export(namespace, export_type);
         Self {

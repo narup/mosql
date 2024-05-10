@@ -21,4 +21,5 @@ STATUS.md
 # already existing elements were commented out
 
 #/target
-data.db
+mosql_db.db
+mosql_test_db.db

@@ -11,19 +11,21 @@ pub struct DBClient {
     db: Database,
 }
 
-pub fn setup_client(uri: &str, db_name: &str) -> DBClient {
-    let conn = DBClient::new(uri, db_name);
+pub fn setup_client(uri: &str) -> DBClient {
+    let conn = DBClient::new(uri);
     return conn;
 }
 
 impl DBClient {
-    pub fn new(uri: &str, db_name: &str) -> Self {
+    pub fn new(uri: &str) -> Self {
         let conn = match connect(uri) {
             Ok(conn) => conn,
             Err(e) => panic!("Error connecting to mongo: {}", e),
         };
 
-        let db = conn.database(db_name);
+        let db = conn.default_database().expect(
+            "error: connection url should specify the default database name to use as a source",
+        );
         Self {
             sync_conn: conn,
             db,
@@ -160,6 +162,6 @@ mod tests {
     }
 
     fn setup() -> mongo::DBClient {
-        return mongo::DBClient::new("mongodb://localhost:27017", "mosql");
+        return mongo::DBClient::new("mongodb://localhost:27017/mosql");
     }
 }

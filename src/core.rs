@@ -11,14 +11,14 @@ pub struct SQLiteClient {
     pub conn: DatabaseConnection,
 }
 
-pub fn setup_sqlite_client() -> SQLiteClient {
-    SQLiteClient::new()
+pub fn setup_sqlite_client(name: &str) -> SQLiteClient {
+    SQLiteClient::new(name)
 }
 
 impl SQLiteClient {
-    pub fn new() -> Self {
+    pub fn new(name: &str) -> Self {
         let sqlite_conn = task::block_on(async {
-            let database_url = "sqlite://data.db?mode=rwc";
+            let database_url = format!("sqlite://{}_db.db?mode=rwc", name);
             match setup_sqlite_connection(&database_url).await {
                 Ok(sqlite_conn) => return sqlite_conn,
                 Err(err) => panic!("Error connecting to sqlite {}", err),
@@ -45,10 +45,10 @@ pub struct ExportBuilder {
 }
 
 impl ExportBuilder {
-    pub fn init_new_export(namespace: String, export_type: String) -> ExportBuilder {
+    pub fn init_new_export(namespace: &str, export_type: &str) -> ExportBuilder {
         let entity = export::ActiveModel {
-            namespace: Set(namespace),
-            r#type: Set(export_type),
+            namespace: Set(namespace.to_string()),
+            r#type: Set(export_type.to_string()),
             creator_id: Set(999999),
             updator_id: Set(999999),
             created_at: Set(Utc::now().to_rfc3339()),
@@ -62,7 +62,7 @@ impl ExportBuilder {
     pub fn add_connection(
         &mut self,
         conn_type: String,
-        connection: connection::Model,
+        connection: &connection::Model,
     ) -> &mut ExportBuilder {
         if conn_type == "source" {
             self.entity.source_connection_id = Set(connection.id);
@@ -83,8 +83,18 @@ impl ExportBuilder {
         return self;
     }
 
-    pub fn set_update_info(&mut self, updator: user::Model) -> &mut ExportBuilder {
+    pub fn set_update_info(&mut self, updator: &user::Model) -> &mut ExportBuilder {
         self.entity.updator_id = Set(updator.id);
+        self.entity.updated_at = Set(Utc::now().to_rfc3339());
+
+        return self;
+    }
+
+    pub fn set_creator_info(&mut self, creator: &user::Model) -> &mut ExportBuilder {
+        self.entity.creator_id = Set(creator.id);
+        self.entity.created_at = Set(Utc::now().to_rfc3339());
+
+        self.entity.updator_id = Set(creator.id);
         self.entity.updated_at = Set(Utc::now().to_rfc3339());
 
         return self;
@@ -96,7 +106,7 @@ impl ExportBuilder {
 }
 
 pub async fn save_data_source_connection(
-    db_client: SQLiteClient,
+    db_client: &SQLiteClient,
     name: String,
     connection_string: String,
 ) -> Result<connection::Model, sea_orm::DbErr> {
@@ -110,7 +120,7 @@ pub async fn save_data_source_connection(
 }
 
 pub async fn save_new_user(
-    db_client: SQLiteClient,
+    db_client: &SQLiteClient,
     user_name: String,
     full_name: String,
     email: String,
@@ -137,19 +147,94 @@ async fn setup_sqlite_connection(database_url: &str) -> Result<DatabaseConnectio
 mod tests {
     use crate::core;
     use async_std::task;
+    use entity::*;
+    use rand::{distributions::Alphanumeric, Rng};
+
+    use super::SQLiteClient;
 
     #[test]
-    fn test_core_save_user() {
-        let sqlite = core::setup_sqlite_client();
+    fn test_sqlite_crud_operation() {
+        let sqlite = core::setup_sqlite_client("mosql_test");
+        let user = test_core_save_user(&sqlite);
+        let data_source_conn_src = test_core_save_data_source_connection(&sqlite);
+        let data_source_conn_dest = test_core_save_data_source_connection(&sqlite);
+
+        let namespace = generate_random_string(6);
+        let export_builder =
+            &mut core::ExportBuilder::init_new_export(namespace.as_str(), "mongo_to_postgres");
+
+        let export_builder = export_builder
+            .add_connection("source".to_string(), &data_source_conn_src)
+            .add_connection("destination".to_string(), &data_source_conn_dest)
+            .include_collections(Vec::new())
+            .exclude_collections(vec![
+                "exclude_coll1".to_string(),
+                "exclude_coll2".to_string(),
+            ])
+            .set_creator_info(&user);
+
+        //save
+        let saved_export =
+            task::block_on(export_builder.save(&sqlite)).expect("failed to save an export details");
+
+        assert!(saved_export.id > 0);
+        assert_eq!(saved_export.namespace, namespace.clone());
+        assert_eq!(saved_export.creator_id, user.id);
+        assert_eq!(saved_export.source_connection_id, data_source_conn_src.id);
+        assert_eq!(
+            saved_export.destination_connection_id,
+            data_source_conn_dest.id
+        );
+    }
+
+    fn test_core_save_user(sqlite: &core::SQLiteClient) -> user::Model {
+        let full_name = format!(
+            "{} {}",
+            generate_random_string(6),
+            generate_random_string(7)
+        );
+        let email = format!(
+            "{}@{}.com",
+            generate_random_string(6),
+            generate_random_string(5)
+        );
+
         let user = task::block_on(core::save_new_user(
-            sqlite,
-            "mosql".to_string(),
-            "MoSQL Admin".to_string(),
-            "admin@mosql.io".to_string(),
+            &sqlite,
+            generate_random_string(6),
+            full_name.clone(),
+            email,
         ))
         .expect("Error creating user");
 
-        assert_eq!(user.full_name, "MoSQL Admin");
+        assert_eq!(user.full_name, full_name);
         assert!(user.id > 0);
+
+        return user;
+    }
+
+    fn test_core_save_data_source_connection(sqlite: &SQLiteClient) -> connection::Model {
+        let name = format!("mongo_{}", generate_random_string(5));
+        let data_source_conn = task::block_on(core::save_data_source_connection(
+            &sqlite,
+            name.clone(),
+            "mongo://localhost:27017".to_string(),
+        ))
+        .expect("Error creating data source connection");
+
+        assert_eq!(data_source_conn.name, name);
+        assert!(data_source_conn.id > 0);
+
+        return data_source_conn;
+    }
+
+    fn generate_random_string(length: usize) -> String {
+        let mut rng = rand::thread_rng();
+        let random_string: String = rng
+            .sample_iter(&Alphanumeric)
+            .take(length)
+            .map(char::from)
+            .collect();
+        random_string
     }
 }
