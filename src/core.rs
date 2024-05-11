@@ -5,7 +5,9 @@ use migration::{Migrator, MigratorTrait};
 
 use ::entity::*;
 use chrono::Utc;
+use log::{debug, info};
 use sea_orm::*;
+use serde::{Deserialize, Serialize};
 
 pub struct SQLiteClient {
     pub conn: DatabaseConnection,
@@ -17,8 +19,12 @@ pub fn setup_sqlite_client(name: &str) -> SQLiteClient {
 
 impl SQLiteClient {
     pub fn new(name: &str) -> Self {
+        info!("Setting up sqlite database");
+
         let sqlite_conn = task::block_on(async {
             let database_url = format!("sqlite://{}_db.db?mode=rwc", name);
+            debug!("sqlite database url {}", database_url);
+
             match setup_sqlite_connection(&database_url).await {
                 Ok(sqlite_conn) => return sqlite_conn,
                 Err(err) => panic!("Error connecting to sqlite {}", err),
@@ -38,6 +44,36 @@ impl SQLiteClient {
 
         return res;
     }
+}
+
+//-- export models for data transfers
+//
+#[derive(Serialize, Deserialize)]
+pub struct Export {
+    pub namespace: String,
+    pub export_type: String,
+    pub exclude_filters: Vec<String>,
+    pub include_filters: Vec<String>,
+    pub schemas: Vec<Schema>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Schema {
+    pub namespace: String,
+    pub collection: String,
+    pub sql_table: String,
+    pub version: String,
+    pub indexes: Vec<String>,
+    pub mappings: Vec<Mapping>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Mapping {
+    pub source_field_name: String,
+    pub destination_field_name: String,
+    pub source_field_type: String,
+    pub destination_field_type: String,
+    pub version: String,
 }
 
 pub struct ExportBuilder {
@@ -229,7 +265,7 @@ mod tests {
     }
 
     fn generate_random_string(length: usize) -> String {
-        let mut rng = rand::thread_rng();
+        let rng = rand::thread_rng();
         let random_string: String = rng
             .sample_iter(&Alphanumeric)
             .take(length)

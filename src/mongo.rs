@@ -1,12 +1,61 @@
-use std::collections::HashMap;
-use std::error::Error;
-
 //Mongo module to handle all the MongoDB related operations
+use log::{debug, info};
 use mongodb::{
     bson::{doc, spec::ElementType, Bson, Document},
     options::{ClientOptions, ServerApi, ServerApiVersion},
     sync::{Client, Collection, Database},
 };
+use std::collections::HashMap;
+use std::error::Error;
+
+#[derive(Debug)]
+pub struct DocumentValue {
+    pub value: Bson,
+    pub value_type: ElementType,
+}
+
+impl DocumentValue {
+    pub fn sql_type(&self) -> String {
+        let sql_val_type = match self.value_type {
+            ElementType::String | ElementType::ObjectId | ElementType::Null => "text",
+            ElementType::Double | ElementType::Decimal128 => "numeric",
+            ElementType::Int32 => "integer",
+            ElementType::Int64 => "bigint",
+            ElementType::Boolean => "boolean",
+            ElementType::Timestamp | ElementType::DateTime => "timestamp with time zone",
+            _ => "text",
+        };
+
+        return sql_val_type.to_string();
+    }
+
+    pub fn mongo_type(&self) -> String {
+        let mtype = match self.value_type {
+            ElementType::EmbeddedDocument => "embed",
+            ElementType::Double => "double",
+            ElementType::String => "string",
+            ElementType::Array => "array",
+            ElementType::Binary => "binary",
+            ElementType::Undefined => "undefined",
+            ElementType::ObjectId => "object_id",
+            ElementType::Boolean => "boolean",
+            ElementType::DateTime => "datetime",
+            ElementType::Null => "null",
+            ElementType::RegularExpression => "regular_expression",
+            ElementType::DbPointer => "db_pointer",
+            ElementType::JavaScriptCode => "javascript_code",
+            ElementType::Symbol => "symbol",
+            ElementType::JavaScriptCodeWithScope => "javascript_code_with_scope",
+            ElementType::Int32 => "int32",
+            ElementType::Timestamp => "timestamp",
+            ElementType::Int64 => "int64",
+            ElementType::Decimal128 => "decimal128",
+            ElementType::MaxKey => "max_key",
+            ElementType::MinKey => "min_key",
+        };
+        return mtype.to_string();
+    }
+}
 
 pub struct DBClient {
     sync_conn: Client,
@@ -28,6 +77,7 @@ impl DBClient {
         let db = conn.default_database().expect(
             "error: connection url should specify the default database name to use as a source",
         );
+        info!("Default database name:{}", db.name());
         Self {
             sync_conn: conn,
             db,
@@ -41,31 +91,38 @@ impl DBClient {
             .run_command(doc! { "ping": 1 }, None)
         {
             Ok(_) => {
-                println!("Database pinged. Connected!");
+                info!("Database pinged. Connected!");
                 return true;
             }
             Err(e) => {
-                println!("Error connecting to database:{}", e);
+                info!("Error connecting to database:{}", e);
                 return false;
             }
         }
     }
 
-    pub fn collection<T>(&self, name: String) -> Collection<T> {
-        return self.db.collection(name.as_str());
+    pub fn collections(&self) -> Result<Vec<String>, Box<dyn Error>> {
+        match self.db.list_collection_names(None) {
+            Ok(list) => return Ok(list),
+            Err(err) => Err(format!("error listing collection names: {}", err).into()),
+        }
+    }
+
+    pub fn collection<T>(&self, name: &str) -> Collection<T> {
+        return self.db.collection(name);
     }
 
     pub fn generate_collection_flat_map(
         &self,
-        collection_name: String,
-    ) -> Result<HashMap<String, Bson>, Box<dyn Error>> {
-        let coll: Collection<Document> = self.collection(collection_name.clone());
+        collection_name: &str,
+    ) -> Result<HashMap<String, DocumentValue>, Box<dyn Error>> {
+        let coll: Collection<Document> = self.collection(collection_name);
         let result = match coll.find_one(None, None) {
             Ok(it) => it,
             Err(err) => return Err(format!("error finding the document: {}", err).into()),
         };
 
-        let mut final_map: HashMap<String, Bson> = HashMap::new();
+        let mut final_map: HashMap<String, DocumentValue> = HashMap::new();
         if let Some(doc) = result {
             create_flat_map(&mut final_map, collection_name, &doc);
         }
@@ -75,7 +132,7 @@ impl DBClient {
 }
 
 fn connect(uri: &str) -> mongodb::error::Result<Client> {
-    println!("Connecting to MongoDB...");
+    info!("Connecting to MongoDB...");
     let mut client_options = ClientOptions::parse(uri)?;
 
     // Set the server_api field of the client_options object to Stable API version 1
@@ -87,16 +144,16 @@ fn connect(uri: &str) -> mongodb::error::Result<Client> {
 }
 
 //private functions ---
-fn create_flat_map(flat_map: &mut HashMap<String, Bson>, prefix: String, doc: &Document) {
+fn create_flat_map(flat_map: &mut HashMap<String, DocumentValue>, prefix: &str, doc: &Document) {
     for key in doc.keys() {
         if let Some(val) = doc.get(key) {
             let new_key = format!("{}.{}", prefix, key.to_string());
 
             match val.element_type() {
                 ElementType::EmbeddedDocument => {
-                    println!("embedded document found, create nested keys");
+                    debug!("embedded document found, create nested keys");
                     if let Some(embeded_doc) = val.as_document() {
-                        create_flat_map(flat_map, new_key, embeded_doc)
+                        create_flat_map(flat_map, &new_key, embeded_doc)
                     }
                 }
                 ElementType::Double
@@ -119,7 +176,11 @@ fn create_flat_map(flat_map: &mut HashMap<String, Bson>, prefix: String, doc: &D
                 | ElementType::Decimal128
                 | ElementType::MaxKey
                 | ElementType::MinKey => {
-                    flat_map.insert(new_key, val.to_owned());
+                    let field_value = DocumentValue {
+                        value: val.to_owned(),
+                        value_type: val.element_type(),
+                    };
+                    flat_map.insert(new_key, field_value);
                 }
             }
         }
@@ -177,7 +238,7 @@ mod tests {
         let db_client: mongo::DBClient = setup();
         let doc = build_test_document();
 
-        let coll: Collection<TestDocument> = db_client.collection("test_collection".to_string());
+        let coll: Collection<TestDocument> = db_client.collection("test_collection");
         let res = coll.insert_one(doc, None).expect("insert failed ");
         assert_ne!(res.inserted_id.to_string(), "");
     }
