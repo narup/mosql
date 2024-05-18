@@ -23,3 +23,4 @@ STATUS.md
 #/target
 mosql_db.db
 mosql_test_db.db
+mosqldb_data.db

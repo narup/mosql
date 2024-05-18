@@ -8,11 +8,11 @@ fn main() {
     log::set_max_level(LevelFilter::Debug);
 
     // Define a logger target for output. Here, we use stdout.
-    let _ = simple_logger::SimpleLogger::new();
+    let _ = simple_logger::SimpleLogger::new().env().init().unwrap();
 
     info!("Starting MoSQL");
 
-    let exporter = mosql::Exporter::new(
+    let mut exporter = mosql::Exporter::new(
         "mosql", //namespace
         "mongo_to_postgres",
         "mongodb://localhost:27017/mosql",

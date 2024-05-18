@@ -1,7 +1,6 @@
 use crate::core;
 use crate::mongo;
 
-use async_std::task;
 use case_converter::*;
 use derive_more::Display;
 use log::{debug, info};
@@ -14,6 +13,7 @@ pub enum MoSQLError {
 }
 
 pub struct Exporter {
+    namespace: String,
     sqlite_client: core::SQLiteClient,
     mongo_client: mongo::DBClient,
     export_builder: core::ExportBuilder,
@@ -42,13 +42,14 @@ impl Exporter {
 
         let export_builder = core::ExportBuilder::init_new_export(namespace, export_type);
         Self {
+            namespace: namespace.to_string(),
             sqlite_client,
             mongo_client,
             export_builder,
         }
     }
 
-    pub fn generate_default_schema_mapping(&self) -> Result<(), MoSQLError> {
+    pub fn generate_default_schema_mapping(&mut self) -> Result<(), MoSQLError> {
         match self.mongo_client.collections() {
             Err(err) => Err(MoSQLError::MongoError(err.to_string())),
             Ok(collections) => {
@@ -62,15 +63,13 @@ impl Exporter {
                     schemas.push(schema.ok().expect("error with schema"));
                 }
 
-                let export = core::Export {
-                    namespace: "namespace".to_string(),
-                    export_type: "postgres".to_string(),
-                    schemas,
-                    exclude_filters: Vec::new(),
-                    include_filters: Vec::new(),
-                };
+                let _ = self
+                    .export_builder
+                    .set_schemas(schemas)
+                    .save(&self.sqlite_client);
 
-                let json_data = serde_json::to_string_pretty(&export).unwrap();
+                let json_data =
+                    serde_json::to_string_pretty(&self.export_builder.get_export()).unwrap();
 
                 // Write the JSON data to a file
                 let file_name = format!("{}_schema.json", "namespace");
@@ -81,6 +80,10 @@ impl Exporter {
                 Ok(())
             }
         }
+    }
+
+    pub fn save(&mut self) {
+        let _ = self.export_builder.save(&self.sqlite_client);
     }
 
     fn generate_schema_mapping(&self, collection: &str) -> Result<core::Schema, MoSQLError> {
@@ -100,6 +103,7 @@ impl Exporter {
                     let sql_field_name = camel_to_snake(&sql_field_name.replace(".", "_"));
 
                     let mapping = core::Mapping {
+                        id: None,
                         source_field_name: key.to_string(),
                         destination_field_name: sql_field_name.to_string(),
                         source_field_type: value.mongo_type(),
@@ -110,7 +114,8 @@ impl Exporter {
                 }
 
                 let schema = core::Schema {
-                    namespace: "".to_string(),
+                    id: None,
+                    namespace: self.namespace.clone(),
                     collection: collection.to_string(),
                     sql_table: camel_to_snake(collection),
                     version: "1.0".to_string(),
@@ -122,10 +127,6 @@ impl Exporter {
             }
             Err(err) => return Err(MoSQLError::MongoError(err.to_string())),
         };
-    }
-
-    pub fn save(&self) {
-        let _ = task::block_on(self.export_builder.save(&self.sqlite_client));
     }
 }
 

@@ -1,80 +1,20 @@
 {
-  "namespace": "namespace",
-  "export_type": "postgres",
+  "id": null,
+  "namespace": "mosql",
+  "export_type": "mongo_to_postgres",
   "exclude_filters": [],
   "include_filters": [],
   "schemas": [
     {
-      "namespace": "",
+      "id": null,
+      "namespace": "mosql",
       "collection": "test_collection",
       "sql_table": "test_collection",
       "version": "1.0",
-      "indexes": null,
+      "indexes": [],
       "mappings": [
         {
-          "source_field_name": "test_collection.created_date",
-          "destination_field_name": "created_date",
-          "source_field_type": "datetime",
-          "destination_field_type": "timestamp with time zone",
-          "version": "1.0"
-        },
-        {
-          "source_field_name": "test_collection.long_int_value",
-          "destination_field_name": "long_int_value",
-          "source_field_type": "int64",
-          "destination_field_type": "bigint",
-          "version": "1.0"
-        },
-        {
-          "source_field_name": "test_collection.company.website_url",
-          "destination_field_name": "company_website_url",
-          "source_field_type": "string",
-          "destination_field_type": "text",
-          "version": "1.0"
-        },
-        {
-          "source_field_name": "test_collection.attrs.key2",
-          "destination_field_name": "attrs_key2",
-          "source_field_type": "string",
-          "destination_field_type": "text",
-          "version": "1.0"
-        },
-        {
-          "source_field_name": "test_collection.is_active",
-          "destination_field_name": "is_active",
-          "source_field_type": "boolean",
-          "destination_field_type": "boolean",
-          "version": "1.0"
-        },
-        {
-          "source_field_name": "test_collection.int_value",
-          "destination_field_name": "int_value",
-          "source_field_type": "int32",
-          "destination_field_type": "integer",
-          "version": "1.0"
-        },
-        {
-          "source_field_name": "test_collection.company.company_address.state",
-          "destination_field_name": "company_company_address_state",
-          "source_field_type": "string",
-          "destination_field_type": "text",
-          "version": "1.0"
-        },
-        {
-          "source_field_name": "test_collection.company.company_address.residence",
-          "destination_field_name": "company_company_address_residence",
-          "source_field_type": "boolean",
-          "destination_field_type": "boolean",
-          "version": "1.0"
-        },
-        {
-          "source_field_name": "test_collection.name",
-          "destination_field_name": "name",
-          "source_field_type": "string",
-          "destination_field_type": "text",
-          "version": "1.0"
-        },
-        {
+          "id": null,
           "source_field_name": "test_collection.email",
           "destination_field_name": "email",
           "source_field_type": "string",
@@ -82,6 +22,39 @@
           "version": "1.0"
         },
         {
+          "id": null,
+          "source_field_name": "test_collection.company.company_address.residence",
+          "destination_field_name": "company_company_address_residence",
+          "source_field_type": "boolean",
+          "destination_field_type": "boolean",
+          "version": "1.0"
+        },
+        {
+          "id": null,
+          "source_field_name": "test_collection.created_date",
+          "destination_field_name": "created_date",
+          "source_field_type": "datetime",
+          "destination_field_type": "timestamp with time zone",
+          "version": "1.0"
+        },
+        {
+          "id": null,
+          "source_field_name": "test_collection.company.website_url",
+          "destination_field_name": "company_website_url",
+          "source_field_type": "string",
+          "destination_field_type": "text",
+          "version": "1.0"
+        },
+        {
+          "id": null,
+          "source_field_name": "test_collection.company.company_address.state",
+          "destination_field_name": "company_company_address_state",
+          "source_field_type": "string",
+          "destination_field_type": "text",
+          "version": "1.0"
+        },
+        {
+          "id": null,
           "source_field_name": "test_collection.decimal_value",
           "destination_field_name": "decimal_value",
           "source_field_type": "double",
@@ -89,6 +62,15 @@
           "version": "1.0"
         },
         {
+          "id": null,
+          "source_field_name": "test_collection.attrs.key2",
+          "destination_field_name": "attrs_key2",
+          "source_field_type": "string",
+          "destination_field_type": "text",
+          "version": "1.0"
+        },
+        {
+          "id": null,
           "source_field_name": "test_collection.phone_number",
           "destination_field_name": "phone_number",
           "source_field_type": "string",
@@ -96,6 +78,31 @@
           "version": "1.0"
         },
         {
+          "id": null,
+          "source_field_name": "test_collection.long_int_value",
+          "destination_field_name": "long_int_value",
+          "source_field_type": "int64",
+          "destination_field_type": "bigint",
+          "version": "1.0"
+        },
+        {
+          "id": null,
+          "source_field_name": "test_collection.is_active",
+          "destination_field_name": "is_active",
+          "source_field_type": "boolean",
+          "destination_field_type": "boolean",
+          "version": "1.0"
+        },
+        {
+          "id": null,
+          "source_field_name": "test_collection.city",
+          "destination_field_name": "city",
+          "source_field_type": "string",
+          "destination_field_type": "text",
+          "version": "1.0"
+        },
+        {
+          "id": null,
           "source_field_name": "test_collection.attrs.key1",
           "destination_field_name": "attrs_key1",
           "source_field_type": "string",
@@ -103,6 +110,15 @@
           "version": "1.0"
         },
         {
+          "id": null,
+          "source_field_name": "test_collection.int_value",
+          "destination_field_name": "int_value",
+          "source_field_type": "int32",
+          "destination_field_type": "integer",
+          "version": "1.0"
+        },
+        {
+          "id": null,
           "source_field_name": "test_collection.tags",
           "destination_field_name": "tags",
           "source_field_type": "array",
@@ -110,6 +126,7 @@
           "version": "1.0"
         },
         {
+          "id": null,
           "source_field_name": "test_collection.company.company_address.zip_code",
           "destination_field_name": "company_company_address_zip_code",
           "source_field_type": "string",
@@ -117,6 +134,7 @@
           "version": "1.0"
         },
         {
+          "id": null,
           "source_field_name": "test_collection.company.company_address.street1",
           "destination_field_name": "company_company_address_street1",
           "source_field_type": "string",
@@ -124,6 +142,15 @@
           "version": "1.0"
         },
         {
+          "id": null,
+          "source_field_name": "test_collection.name",
+          "destination_field_name": "name",
+          "source_field_type": "string",
+          "destination_field_type": "text",
+          "version": "1.0"
+        },
+        {
+          "id": null,
           "source_field_name": "test_collection.company.name",
           "destination_field_name": "company_name",
           "source_field_type": "string",
@@ -131,20 +158,38 @@
           "version": "1.0"
         },
         {
+          "id": null,
           "source_field_name": "test_collection._id",
           "destination_field_name": "_id",
           "source_field_type": "object_id",
           "destination_field_type": "text",
           "version": "1.0"
-        },
-        {
-          "source_field_name": "test_collection.city",
-          "destination_field_name": "city",
-          "source_field_type": "string",
-          "destination_field_type": "text",
-          "version": "1.0"
         }
       ]
     }
-  ]
+  ],
+  "source_connection": {
+    "id": 1,
+    "name": "N/A",
+    "connection_string": "N/A"
+  },
+  "dest_connection": {
+    "id": 2,
+    "name": "N/A",
+    "connection_string": "N/A"
+  },
+  "creator": {
+    "id": 1,
+    "full_name": "N/A",
+    "user_name": "N/A",
+    "email": null,
+    "created_at": "N/A"
+  },
+  "updator": {
+    "id": 1,
+    "full_name": "N/A",
+    "user_name": "N/A",
+    "email": null,
+    "created_at": "N/A"
+  }
 }
