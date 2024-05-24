@@ -8,15 +8,15 @@
  - Initialize new database export and configure
  ``` $ mosql export init <namespace> ```
 above command will prompt you for more details about the export
-	 `$ Source database name: `
-   	 `$ Source database connection string: `
-         `$ Destination database name: `
-	 `$ Destination database connection string: `
-   	 `$ Collections to exclude (comma separated): `
-	 `$ Collections to include (comma separated, no value means include all collections): `
-	 `$ User name (optional): `
-	 `$ Email (optional): `
-	 `$ Save (Y/N - Press Y to save and N to change the export details): `
+- `$ Source database name: `
+- `$ Source database connection string: `
+- `$ Destination database name: `
+- `$ Destination database connection string: `
+- `$ Collections to exclude (comma separated): `
+- `$ Collections to include (comma separated, no value means include all collections): `
+- `$ User name (optional): `
+- `$ Email (optional): `
+- `$ Save (Y/N - Press Y to save and N to change the export details): `
 	If you press N and hit enter, you can change the details of the export. Press up or down arrow to skip through the details to update.
 
 	If you press Y and if everything goes well, new export is created and you will see a success message with options for next actions you can take
