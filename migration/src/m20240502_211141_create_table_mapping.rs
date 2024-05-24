@@ -43,7 +43,8 @@ impl MigrationTrait for Migration {
                         ForeignKey::create()
                             .name("fk-mappings-schema-id")
                             .from(Mapping::Table, Mapping::SchemaId)
-                            .to(Schema::Table, Schema::Id),
+                            .to(Schema::Table, Schema::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
             )

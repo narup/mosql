@@ -19,13 +19,7 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(User::FullName).string().not_null())
-                    .col(
-                        ColumnDef::new(User::UserName)
-                            .string()
-                            .not_null()
-                            .unique_key(),
-                    )
-                    .col(ColumnDef::new(User::Email).string())
+                    .col(ColumnDef::new(User::Email).string().not_null().unique_key())
                     .col(ColumnDef::new(User::CreatedAt).date_time().not_null())
                     .to_owned(),
             )
@@ -44,7 +38,6 @@ pub enum User {
     Table,
     Id,
     FullName,
-    UserName,
     Email,
     CreatedAt,
 }

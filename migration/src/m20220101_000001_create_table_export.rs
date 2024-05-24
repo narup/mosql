@@ -42,25 +42,29 @@ impl MigrationTrait for Migration {
                         ForeignKey::create()
                             .name("fk-exports-source-connection-id")
                             .from(Export::Table, Export::SourceConnectionId)
-                            .to(Connection::Table, Connection::Id),
+                            .to(Connection::Table, Connection::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-exports-destination-connection-id")
                             .from(Export::Table, Export::DestinationConnectionId)
-                            .to(Connection::Table, Connection::Id),
+                            .to(Connection::Table, Connection::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-exports-creator-id")
                             .from(Export::Table, Export::CreatorId)
-                            .to(User::Table, User::Id),
+                            .to(User::Table, User::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-exports-updator-id")
                             .from(Export::Table, Export::UpdatorId)
-                            .to(User::Table, User::Id),
+                            .to(User::Table, User::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
             )

@@ -28,7 +28,15 @@ impl SQLiteClient {
             debug!("sqlite database url {}", database_url);
 
             match setup_sqlite_connection(&database_url).await {
-                Ok(sqlite_conn) => return sqlite_conn,
+                Ok(sqlite_conn) => {
+                    info!("Running migration...");
+                    if let Err(err) = migration::Migrator::up(&sqlite_conn, None).await {
+                        panic!("Error connecting to sqlite {}", err);
+                    }
+                    info!("Migration ran successfully");
+
+                    return sqlite_conn;
+                }
                 Err(err) => panic!("Error connecting to sqlite {}", err),
             }
         });
@@ -58,10 +66,10 @@ pub struct Export {
     pub exclude_filters: Vec<String>,
     pub include_filters: Vec<String>,
     pub schemas: Vec<Schema>,
-    pub source_connection: Connection,
-    pub dest_connection: Connection,
-    pub creator: User,
-    pub updator: User,
+    pub source_connection: Option<Connection>,
+    pub dest_connection: Option<Connection>,
+    pub creator: Option<User>,
+    pub updator: Option<User>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -96,176 +104,158 @@ pub struct Connection {
 pub struct User {
     pub id: Option<i32>,
     pub full_name: String,
-    pub user_name: String,
-    pub email: Option<String>,
+    pub email: String,
     pub created_at: String,
 }
 
 pub struct ExportBuilder {
-    entity: export::ActiveModel,
-    export: Export,
+    entity: Option<export::ActiveModel>,
+    export: Option<Export>,
 }
 
 impl ExportBuilder {
     pub fn init_new_export(namespace: &str, export_type: &str) -> ExportBuilder {
-        let entity = export::ActiveModel {
-            namespace: Set(namespace.to_string()),
-            r#type: Set(export_type.to_string()),
-            creator_id: Set(999999),
-            updator_id: Set(999999),
-            created_at: Set(Utc::now().to_rfc3339()),
-            updated_at: Set(Utc::now().to_rfc3339()),
-            ..Default::default()
+        return ExportBuilder {
+            export: Some(Export {
+                id: None,
+                namespace: namespace.to_string(),
+                export_type: export_type.to_string(),
+                exclude_filters: Vec::new(),
+                include_filters: Vec::new(),
+                schemas: Vec::new(),
+                source_connection: None,
+                dest_connection: None,
+                creator: None,
+                updator: None,
+            }),
+            entity: None,
         };
-
-        let user = User {
-            id: None,
-            full_name: "N/A".to_string(),
-            user_name: "N/A".to_string(),
-            email: None,
-            created_at: "N/A".to_string(),
-        };
-
-        let connection = Connection {
-            id: None,
-            name: "N/A".to_string(),
-            connection_string: "N/A".to_string(),
-        };
-
-        let export = Export {
-            id: None,
-            namespace: namespace.to_string(),
-            export_type: export_type.to_string(),
-            exclude_filters: Vec::new(),
-            include_filters: Vec::new(),
-            schemas: Vec::new(),
-            creator: user.clone(),
-            updator: user.clone(),
-            source_connection: connection.clone(),
-            dest_connection: connection.clone(),
-        };
-
-        return ExportBuilder { entity, export };
     }
 
-    pub fn add_connection(&mut self, conn_type: String, connection: Connection) -> &mut Self {
+    pub fn add_connection(
+        &mut self,
+        conn_type: &str,
+        name: &str,
+        connection_uri: &str,
+    ) -> &mut Self {
+        let conn = Connection {
+            id: None,
+            name: name.to_string(),
+            connection_string: connection_uri.to_string(),
+        };
         if conn_type == "source" {
-            self.export.source_connection = connection;
+            self.export.as_mut().unwrap().source_connection = Some(conn);
         } else {
-            self.export.dest_connection = connection;
+            self.export.as_mut().unwrap().dest_connection = Some(conn);
         }
 
-        return self;
+        self
     }
 
     pub fn include_collections(&mut self, collections: Vec<String>) -> &mut Self {
-        self.entity.include_filters = Set(Some(collections.join(",")));
+        self.export.as_mut().unwrap().include_filters = collections;
         return self;
     }
 
     pub fn exclude_collections(&mut self, collections: Vec<String>) -> &mut Self {
-        self.entity.exclude_filters = Set(Some(collections.join(",")));
+        self.export.as_mut().unwrap().exclude_filters = collections;
         return self;
     }
 
     pub fn set_updator_info(&mut self, user: User) -> &mut Self {
-        self.export.creator = user;
+        self.export.as_mut().unwrap().updator = Some(user);
         return self;
     }
 
     pub fn set_creator_info(&mut self, user: User) -> &mut Self {
-        self.export.creator = user;
+        self.export.as_mut().unwrap().creator = Some(user);
         return self;
     }
 
     pub fn set_schemas(&mut self, schemas: Vec<Schema>) -> &mut Self {
-        self.export.schemas = schemas;
+        self.export.as_mut().unwrap().schemas = schemas;
         return self;
     }
 
     pub fn export_entity(&self) -> Option<::entity::export::Model> {
-        match self.entity.clone().try_into_model() {
+        if self.entity.is_none() {
+            debug!("Entity not populated");
+            return None;
+        }
+
+        match self.entity.clone().unwrap().try_into_model() {
             Ok(model) => return Some(model),
-            Err(_) => return None,
+            Err(err) => {
+                println!("ERROR: {}", err);
+                return None;
+            }
         }
     }
 
-    pub fn get_export(&self) -> &Export {
-        return &self.export;
+    pub fn get_export(&mut self) -> &Export {
+        return self.export.as_mut().unwrap();
     }
 
     pub fn save(&mut self, db_client: &SQLiteClient) -> Result<bool, Box<dyn Error>> {
-        if task::block_on(check_export_exists(
-            &db_client,
-            self.export.namespace.as_str(),
-        )) {
-            //delete export
-            match task::block_on(delete_export(&db_client, self.export.namespace.as_str())) {
-                Ok(_) => info!("Deleted saved export"),
-                Err(err) => info!("Deleting existing export failed-{}", err),
-            }
+        if self.export.is_none() {
+            return Err(format!(
+                "export data not populated, use ExportBuilder to build the export first"
+            )
+            .into());
         }
 
-        let user_res = task::block_on(save_new_user(
-            db_client,
-            self.export.creator.user_name.to_owned(),
-            self.export.creator.full_name.to_owned(),
-            self.export
-                .creator
-                .email
-                .to_owned()
-                .unwrap_or("default@mosql".to_string()),
-        ));
-        if let Err(err) = user_res {
-            return Err(format!("error saving user data: {}", err).into());
+        if self.export.as_ref().unwrap().creator.is_none() {
+            return Err(format!(
+                "export user cannot be blank, use ExportBuilder to build the export first"
+            )
+            .into());
         }
 
-        let user_id = user_res.unwrap().id;
-        self.export.creator.id = Some(user_id);
-        self.export.updator.id = Some(user_id);
-
-        let source_conn_res = task::block_on(save_data_source_connection(
-            db_client,
-            self.export.source_connection.name.to_owned(),
-            self.export.source_connection.connection_string.to_owned(),
-        ));
-        if let Err(err) = source_conn_res {
-            return Err(format!("error saving source connection data: {}", err).into());
+        if self.export.as_ref().unwrap().source_connection.is_none() {
+            return Err(format!(
+                "source db connection not defined, use ExportBuilder to build the export first"
+            )
+            .into());
         }
-        let source_conn_id = source_conn_res.unwrap().id;
-        self.export.source_connection.id = Some(source_conn_id);
 
-        let dest_conn_res = task::block_on(save_data_source_connection(
-            db_client,
-            self.export.dest_connection.name.to_owned(),
-            self.export.dest_connection.connection_string.to_owned(),
-        ));
-        if let Err(err) = dest_conn_res {
-            return Err(format!("error saving source connection data: {}", err).into());
+        if self.export.as_ref().unwrap().dest_connection.is_none() {
+            return Err(format!(
+                "destination db connection not defined, use ExportBuilder to build the export first"
+            )
+            .into());
         }
-        let dest_conn_id = dest_conn_res.unwrap().id;
-        self.export.dest_connection.id = Some(dest_conn_id);
 
-        let entity = export::ActiveModel {
-            namespace: Set(self.export.namespace.to_owned()),
-            r#type: Set(self.export.export_type.to_owned()),
-            include_filters: Set(Some(self.export.include_filters.join(",").to_owned())),
-            exclude_filters: Set(Some(self.export.exclude_filters.join(",").to_owned())),
+        let export = self.export.as_mut().unwrap();
+
+        self::check_and_delete_existing_export(db_client, export.namespace.as_str())?;
+
+        let user_id = self::save_export_user(db_client, export)?;
+        let source_conn_id = self::save_export_connection(db_client, "source", export)?;
+        let dest_conn_id = self::save_export_connection(db_client, "destination", export)?;
+
+        let mut entity = export::ActiveModel {
+            namespace: Set(export.namespace.to_owned()),
+            r#type: Set(export.export_type.to_owned()),
+            include_filters: Set(Some(export.include_filters.join(",").to_owned())),
+            exclude_filters: Set(Some(export.exclude_filters.join(",").to_owned())),
             creator_id: Set(user_id),
             updator_id: Set(user_id),
+            source_connection_id: Set(source_conn_id),
+            destination_connection_id: Set(dest_conn_id),
             created_at: Set(Utc::now().to_rfc3339()),
             updated_at: Set(Utc::now().to_rfc3339()),
             ..Default::default()
         };
 
-        let export_res = task::block_on(save_export(&db_client, &self.entity));
+        let export_res = task::block_on(save_export(&db_client, &entity));
         if let Err(err) = export_res {
             return Err(format!("Error saving export data: {}", err).into());
         }
 
         let export_id = export_res.unwrap().id;
 
-        for schema in self.export.schemas.iter_mut() {
+        //update the id values on the Export struct model
+        for schema in self.export.as_mut().unwrap().schemas.iter_mut() {
             let schema_entity = ::entity::schema::ActiveModel {
                 namespace: Set(schema.namespace.to_owned()),
                 collection: Set(schema.collection.to_owned()),
@@ -310,10 +300,95 @@ impl ExportBuilder {
             }
         }
 
-        self.entity = entity.clone();
+        entity.id = Set(export_id);
+        self.entity = Some(entity.clone());
 
         return Ok(true);
     }
+}
+
+fn check_and_delete_existing_export(
+    db_client: &SQLiteClient,
+    namespace: &str,
+) -> Result<(), Box<dyn Error>> {
+    //check and delete existing export if it exists for the same namespace
+    if task::block_on(check_export_exists(&db_client, namespace)) {
+        match task::block_on(delete_export(&db_client, namespace)) {
+            Ok(_) => info!("Deleted saved export"),
+            Err(err) => {
+                return Err(format!("Failed to delete export: {}", err).into());
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn save_export_user(db_client: &SQLiteClient, export: &mut Export) -> Result<i32, Box<dyn Error>> {
+    let user = export.creator.as_ref().unwrap();
+    info!("User email check {}", user.email);
+    let user_id = task::block_on(user_by_email(db_client, &user.email.clone()));
+    info!("User id {}", user_id);
+    if user_id > 0 {
+        info!("found existing user");
+        return Ok(user_id);
+    }
+
+    let user_res = task::block_on(save_new_user(
+        db_client,
+        user.full_name.to_owned(),
+        user.email.to_owned(),
+    ));
+    if let Err(err) = user_res {
+        return Err(format!("error saving user data: {}", err).into());
+    }
+
+    let user_id = user_res.unwrap().id;
+    export.creator.as_mut().unwrap().id = Some(user_id);
+    export.updator.as_mut().unwrap().id = Some(user_id);
+
+    Ok(user_id)
+}
+
+fn save_export_connection(
+    db_client: &SQLiteClient,
+    conn_type: &str,
+    export: &mut Export,
+) -> Result<i32, Box<dyn Error>> {
+    let name = if conn_type == "source" {
+        export.source_connection.as_mut().unwrap().name.to_owned()
+    } else {
+        export.dest_connection.as_mut().unwrap().name.to_owned()
+    };
+
+    let conn_string = if conn_type == "source" {
+        export
+            .source_connection
+            .as_mut()
+            .unwrap()
+            .connection_string
+            .to_owned()
+    } else {
+        export
+            .dest_connection
+            .as_mut()
+            .unwrap()
+            .connection_string
+            .to_owned()
+    };
+
+    let source_conn_res = task::block_on(save_data_source_connection(db_client, name, conn_string));
+    if let Err(err) = source_conn_res {
+        return Err(format!("error saving source connection data: {}", err).into());
+    }
+    let conn_id = source_conn_res.unwrap().id;
+    if conn_type == "source" {
+        export.source_connection.as_mut().unwrap().id = Some(conn_id);
+    } else {
+        export.dest_connection.as_mut().unwrap().id = Some(conn_id);
+    }
+
+    Ok(conn_id)
 }
 
 pub async fn save_export(
@@ -339,14 +414,12 @@ pub async fn save_data_source_connection(
 
 pub async fn save_new_user(
     db_client: &SQLiteClient,
-    user_name: String,
     full_name: String,
     email: String,
 ) -> Result<user::Model, sea_orm::DbErr> {
     let u = user::ActiveModel {
-        user_name: Set(user_name),
         full_name: Set(full_name),
-        email: Set(Some(email)),
+        email: Set(email),
         created_at: Set(Utc::now().to_rfc3339()),
         ..Default::default()
     };
@@ -380,6 +453,32 @@ pub async fn check_export_exists(db_client: &SQLiteClient, namespace: &str) -> b
     }
 }
 
+pub async fn user_by_email(db_client: &SQLiteClient, email: &str) -> i32 {
+    match user::Entity::find()
+        .from_raw_sql(Statement::from_sql_and_values(
+            DbBackend::Sqlite,
+            r#"SELECT * FROM user WHERE email = $1"#,
+            [email.into()],
+        ))
+        .one(&db_client.conn)
+        .await
+    {
+        Ok(model) => {
+            if let Some(user) = model {
+                info!("Found user model - {:?}", user);
+                return user.id;
+            } else {
+                info!("No saved user found for email {}", email);
+                return -1;
+            }
+        }
+        Err(err) => {
+            info!("Error checking user count - {}", err);
+            return -1;
+        }
+    }
+}
+
 pub async fn delete_export(
     db_client: &SQLiteClient,
     namespace: &str,
@@ -393,7 +492,7 @@ pub async fn delete_export(
             assert_eq!(delete_result.rows_affected, 1);
             Ok(true)
         }
-        Err(err) => Err(format!("Errordeleting export {}", err).into()),
+        Err(err) => Err(format!("{}", err).into()),
     }
 }
 
@@ -431,30 +530,72 @@ mod tests {
 
         let creator = generate_test_user();
 
+        let mapping_1_1 = core::Mapping {
+            id: None,
+            source_field_name: generate_random_string(6),
+            destination_field_name: generate_random_string(8),
+            source_field_type: "string".to_owned(),
+            destination_field_type: "text".to_owned(),
+            version: "1.0".to_string(),
+        };
+
+        let mapping_1_2 = core::Mapping {
+            id: None,
+            source_field_name: generate_random_string(6),
+            destination_field_name: generate_random_string(8),
+            source_field_type: "number".to_owned(),
+            destination_field_type: "float".to_owned(),
+            version: "1.0".to_string(),
+        };
+
+        let mappings_1 = vec![mapping_1_1, mapping_1_2];
+
+        let schema_1 = core::Schema {
+            id: None,
+            namespace: namespace.clone(),
+            collection: generate_random_string(8),
+            sql_table: generate_random_string(6),
+            version: "1.0".to_string(),
+            indexes: Vec::new(),
+            mappings: mappings_1,
+        };
+
+        let mapping_2_1 = core::Mapping {
+            id: None,
+            source_field_name: generate_random_string(6),
+            destination_field_name: generate_random_string(8),
+            source_field_type: "string".to_owned(),
+            destination_field_type: "text".to_owned(),
+            version: "1.0".to_string(),
+        };
+
+        let schema_2 = core::Schema {
+            id: None,
+            namespace: namespace.clone(),
+            collection: generate_random_string(8),
+            sql_table: generate_random_string(6),
+            version: "1.0".to_string(),
+            indexes: Vec::new(),
+            mappings: vec![mapping_2_1],
+        };
+
+        let schemas = vec![schema_1, schema_2];
+
         let export_builder = export_builder
+            .add_connection("source", "mongo", "mongo://localhost:27017/mosql")
             .add_connection(
-                "source".to_string(),
-                core::Connection {
-                    id: None,
-                    name: "mongo".to_string(),
-                    connection_string: "mongo://localhost:27017/mosql".to_string(),
-                },
-            )
-            .add_connection(
-                "destination".to_string(),
-                core::Connection {
-                    id: None,
-                    name: "postgres".to_string(),
-                    connection_string: "postgres://localhost:54324/postgres".to_string(),
-                },
+                "destination",
+                "postgres",
+                "postgres://localhost:54324/postgres",
             )
             .include_collections(Vec::new())
             .exclude_collections(vec![
                 "exclude_coll1".to_string(),
                 "exclude_coll2".to_string(),
             ])
-            .set_schemas(Vec::new())
-            .set_creator_info(creator);
+            .set_schemas(schemas)
+            .set_creator_info(creator.clone())
+            .set_updator_info(creator);
 
         let saved = export_builder.save(&sqlite).expect("Save failed");
         assert!(saved);
@@ -465,12 +606,25 @@ mod tests {
 
         assert!(saved_export.id > 0);
         assert_eq!(saved_export.namespace, namespace.clone());
-        assert_eq!(saved_export.creator_id, user.id);
-        assert_eq!(saved_export.source_connection_id, data_source_conn_src.id);
-        assert_eq!(
-            saved_export.destination_connection_id,
-            data_source_conn_dest.id
+        assert!(saved_export.creator_id > 0);
+        assert!(saved_export.source_connection_id > 0);
+        assert!(saved_export.destination_connection_id > 0);
+
+        println!(
+            "IDs - export id: {}, creator id: {}, source conn id: {}, dest conn id: {}",
+            saved_export.id,
+            saved_export.creator_id,
+            saved_export.source_connection_id,
+            saved_export.destination_connection_id
         );
+
+        if let Err(err) = core::check_and_delete_existing_export(&sqlite, namespace.as_str()) {
+            panic!("test failed: {}", err);
+        } else {
+            println!("deleted export {}", namespace.clone());
+        }
+
+        println!("test passed!!");
     }
 
     fn generate_test_user() -> core::User {
@@ -488,8 +642,7 @@ mod tests {
         return core::User {
             id: None,
             full_name,
-            user_name: generate_random_string(6),
-            email: Some(email),
+            email,
             created_at: "date".to_string(),
         };
     }
@@ -506,13 +659,8 @@ mod tests {
             generate_random_string(5)
         );
 
-        let user = task::block_on(core::save_new_user(
-            &sqlite,
-            generate_random_string(6),
-            full_name.clone(),
-            email,
-        ))
-        .expect("Error creating user");
+        let user = task::block_on(core::save_new_user(&sqlite, full_name.clone(), email))
+            .expect("Error creating user");
 
         assert_eq!(user.full_name, full_name);
         assert!(user.id > 0);

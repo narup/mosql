@@ -29,7 +29,8 @@ impl MigrationTrait for Migration {
                         ForeignKey::create()
                             .name("fk-schemas-export-id")
                             .from(Schema::Table, Schema::ExportId)
-                            .to(Export::Table, Export::Id),
+                            .to(Export::Table, Export::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
             )

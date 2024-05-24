@@ -1,7 +1,7 @@
 use crate::core;
 use crate::mongo;
-
 use case_converter::*;
+use chrono::Utc;
 use derive_more::Display;
 use log::{debug, info};
 use std::fs::File;
@@ -40,7 +40,11 @@ impl Exporter {
 
         info!("mosql core sqlite database setup complete");
 
-        let export_builder = core::ExportBuilder::init_new_export(namespace, export_type);
+        let mut export_builder = core::ExportBuilder::init_new_export(namespace, export_type);
+        export_builder
+            .add_connection("source", "mongo", source_db_uri)
+            .add_connection("destination", "postgres", destination_db_uri);
+
         Self {
             namespace: namespace.to_string(),
             sqlite_client,
@@ -49,13 +53,32 @@ impl Exporter {
         }
     }
 
+    pub fn exclude_collections(&mut self, collections: Vec<String>) {
+        self.export_builder.exclude_collections(collections);
+    }
+
+    pub fn include_collections(&mut self, collections: Vec<String>) {
+        self.export_builder.include_collections(collections);
+    }
+
+    pub fn set_creator(&mut self, email: &str, full_name: &str) {
+        let user = core::User {
+            id: None,
+            email: email.to_string(),
+            full_name: full_name.to_string(),
+            created_at: Utc::now().to_rfc3339(),
+        };
+        self.export_builder.set_creator_info(user.clone());
+        self.export_builder.set_updator_info(user);
+    }
+
     pub fn generate_default_schema_mapping(&mut self) -> Result<(), MoSQLError> {
         match self.mongo_client.collections() {
             Err(err) => Err(MoSQLError::MongoError(err.to_string())),
             Ok(collections) => {
                 let mut schemas = Vec::new();
                 for collection in collections.iter() {
-                    debug!(
+                    info!(
                         "Generating schema mapping for collection '{}'",
                         collection.clone()
                     );
@@ -63,10 +86,14 @@ impl Exporter {
                     schemas.push(schema.ok().expect("error with schema"));
                 }
 
-                let _ = self
+                match self
                     .export_builder
                     .set_schemas(schemas)
-                    .save(&self.sqlite_client);
+                    .save(&self.sqlite_client)
+                {
+                    Err(err) => panic!("Error saving: {}", err),
+                    Ok(_) => info!("Export saved"),
+                }
 
                 let json_data =
                     serde_json::to_string_pretty(&self.export_builder.get_export()).unwrap();
