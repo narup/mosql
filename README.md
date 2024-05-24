@@ -8,8 +8,8 @@
  - Initialize new database export and configure
  ``` $ mosql export init <namespace> ```
 above command will prompt you for more details about the export
-				`> Source database name: `
-        	    `> Source database connection string: `
+	- `> Source database name: `
+   	- `> Source database connection string: `
         	    `> Destination database name: `
         	    `> Destination database connection string: `
         	    `> Collections to exclude (comma separated): `
