@@ -2,7 +2,7 @@
 doc/
 STATUS.md
 .zed/
-
+.env
 
 # Added by cargo
 

@@ -60,7 +60,9 @@ impl SQLiteClient {
 //
 #[derive(Serialize, Deserialize)]
 pub struct Export {
+    #[serde(skip_serializing, skip_deserializing)]
     pub id: Option<i32>,
+
     pub namespace: String,
     pub export_type: String,
     pub exclude_filters: Vec<String>,
@@ -74,7 +76,9 @@ pub struct Export {
 
 #[derive(Serialize, Deserialize)]
 pub struct Schema {
+    #[serde(skip_serializing, skip_deserializing)]
     pub id: Option<i32>,
+
     pub namespace: String,
     pub collection: String,
     pub sql_table: String,
@@ -85,7 +89,9 @@ pub struct Schema {
 
 #[derive(Serialize, Deserialize)]
 pub struct Mapping {
+    #[serde(skip_serializing, skip_deserializing)]
     pub id: Option<i32>,
+
     pub source_field_name: String,
     pub destination_field_name: String,
     pub source_field_type: String,
@@ -95,14 +101,18 @@ pub struct Mapping {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Connection {
+    #[serde(skip_serializing, skip_deserializing)]
     pub id: Option<i32>,
+
     pub name: String,
     pub connection_string: String,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct User {
+    #[serde(skip_serializing, skip_deserializing)]
     pub id: Option<i32>,
+
     pub full_name: String,
     pub email: String,
     pub created_at: String,

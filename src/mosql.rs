@@ -1,5 +1,6 @@
 use crate::core;
 use crate::mongo;
+use crate::sql;
 use case_converter::*;
 use chrono::Utc;
 use derive_more::Display;
@@ -15,6 +16,7 @@ pub enum MoSQLError {
 pub struct Exporter {
     namespace: String,
     sqlite_client: core::SQLiteClient,
+    postgres_client: sql::PostgresClient,
     mongo_client: mongo::DBClient,
     export_builder: core::ExportBuilder,
 }
@@ -32,6 +34,9 @@ impl Exporter {
 
         info!("connected to source database {}", source_db_uri);
 
+        let postgres_client = sql::setup_postgres_client(destination_db_uri);
+        assert!(postgres_client.ping());
+
         info!("connected to destination database {}", destination_db_uri);
 
         //sqlite used for mosql specific data
@@ -48,6 +53,7 @@ impl Exporter {
         Self {
             namespace: namespace.to_string(),
             sqlite_client,
+            postgres_client,
             mongo_client,
             export_builder,
         }

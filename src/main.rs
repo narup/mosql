@@ -1,6 +1,7 @@
 mod core;
 mod mongo;
 mod mosql;
+mod sql;
 use log::info;
 
 fn main() {
