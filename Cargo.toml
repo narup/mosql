@@ -6,29 +6,33 @@ name = "mosql"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
+
+entity = { path = "entity" }
+migration = { path = "migration" } # depends on your needs
+
+rand = "0.8"
+log = "0.4.21"
+dotenvy = "0.15"
+case_converter = "0.1.1"
+serde_json = "1.0.117"
+
 chrono = "0.4.38"
 derive_more = "0.99.17"
 lazy_static = "1.4.0"
 serde = "1.0.199"
+
+tokio = {version = "1.32.0", features = ["full"]}
+
+sea-orm-migration = "0.12.15"
 sea-orm = { version = "^0.12.0", features = [
     "sqlx-sqlite",
-    "runtime-async-std-native-tls",
+    "runtime-tokio-native-tls",
     "macros",
 ] }
-rand = "0.8"
-log = "0.4.21"
-dotenvy = "0.15"
-futures = "0.3.30"
-sea-orm-migration = "0.12.15"
-entity = { path = "entity" }
-migration = { path = "migration" } # depends on your needs
-async-std = "1.12.0"
-case_converter = "0.1.1"
-serde_json = "1.0.117"
-sqlx = { version = "0.6", features = ["postgres", "runtime-async-std-native-tls", "macros"] }
+
+sqlx = { version = "0.6", features = ["postgres", "runtime-tokio-native-tls", "macros"] }
+structopt = "0.3.26"
 
 [dependencies.simple_logger]
 version = "5.0.0"
@@ -37,6 +41,6 @@ features = ["colors", "timestamps"]
 [dependencies.mongodb]
 version = "2.8.2"
 default-features = false
-features = ["tokio-sync"]
+features = ["tokio-runtime"]
 
 

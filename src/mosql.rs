@@ -22,26 +22,26 @@ pub struct Exporter {
 }
 
 impl Exporter {
-    pub fn new(
+    pub async fn new(
         namespace: &str,
         export_type: &str,
         source_db_uri: &str,
         destination_db_uri: &str,
     ) -> Self {
         //source database - mongo
-        let mongo_client = mongo::setup_client(source_db_uri);
-        assert!(mongo_client.ping());
+        let mongo_client = mongo::setup_client(source_db_uri).await;
+        assert!(mongo_client.ping().await);
 
         info!("connected to source database {}", source_db_uri);
 
-        let postgres_client = sql::setup_postgres_client(destination_db_uri);
-        assert!(postgres_client.ping());
+        let postgres_client = sql::setup_postgres_client(destination_db_uri).await;
+        assert!(postgres_client.ping().await);
 
         info!("connected to destination database {}", destination_db_uri);
 
         //sqlite used for mosql specific data
-        let sqlite_client = core::setup_sqlite_client("mosql");
-        assert!(sqlite_client.ping());
+        let sqlite_client = core::setup_sqlite_client("mosql").await;
+        assert!(sqlite_client.ping().await);
 
         info!("mosql core sqlite database setup complete");
 
@@ -78,8 +78,8 @@ impl Exporter {
         self.export_builder.set_updator_info(user);
     }
 
-    pub fn generate_default_schema_mapping(&mut self) -> Result<(), MoSQLError> {
-        match self.mongo_client.collections() {
+    pub async fn generate_default_schema_mapping(&mut self) -> Result<(), MoSQLError> {
+        match self.mongo_client.collections().await {
             Err(err) => Err(MoSQLError::MongoError(err.to_string())),
             Ok(collections) => {
                 let mut schemas = Vec::new();
@@ -88,7 +88,7 @@ impl Exporter {
                         "Generating schema mapping for collection '{}'",
                         collection.clone()
                     );
-                    let schema = self.generate_schema_mapping(collection);
+                    let schema = self.generate_schema_mapping(collection).await;
                     schemas.push(schema.ok().expect("error with schema"));
                 }
 
@@ -96,6 +96,7 @@ impl Exporter {
                     .export_builder
                     .set_schemas(schemas)
                     .save(&self.sqlite_client)
+                    .await
                 {
                     Err(err) => panic!("Error saving: {}", err),
                     Ok(_) => info!("Export saved"),
@@ -119,10 +120,18 @@ impl Exporter {
         let _ = self.export_builder.save(&self.sqlite_client);
     }
 
-    fn generate_schema_mapping(&self, collection: &str) -> Result<core::Schema, MoSQLError> {
+    pub async fn start_full_export(&mut self) {
+        self.postgres_client.ping().await;
+    }
+
+    async fn generate_schema_mapping(&self, collection: &str) -> Result<core::Schema, MoSQLError> {
         info!("Generating schema mapping for collection {}", collection);
 
-        match self.mongo_client.generate_collection_flat_map(collection) {
+        match self
+            .mongo_client
+            .generate_collection_flat_map(collection)
+            .await
+        {
             Ok(flat_map) => {
                 let mut mappings = Vec::new();
 

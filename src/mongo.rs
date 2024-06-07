@@ -2,9 +2,9 @@
 use log::{debug, info};
 use mongodb::{
     bson::{doc, spec::ElementType, Bson, Document},
-    options::{ClientOptions, ServerApi, ServerApiVersion},
-    sync::{Client, Collection, Database},
+    Client, Collection, Database,
 };
+
 use std::collections::HashMap;
 use std::error::Error;
 
@@ -58,18 +58,18 @@ impl DocumentValue {
 }
 
 pub struct DBClient {
-    sync_conn: Client,
+    conn: Client,
     db: Database,
 }
 
-pub fn setup_client(uri: &str) -> DBClient {
-    let conn = DBClient::new(uri);
+pub async fn setup_client(uri: &str) -> DBClient {
+    let conn = DBClient::new(uri).await;
     return conn;
 }
 
 impl DBClient {
-    pub fn new(uri: &str) -> Self {
-        let conn = match connect(uri) {
+    pub async fn new(uri: &str) -> Self {
+        let conn = match Client::with_uri_str(uri).await {
             Ok(conn) => conn,
             Err(e) => panic!("Error connecting to mongo: {}", e),
         };
@@ -78,17 +78,15 @@ impl DBClient {
             "error: connection url should specify the default database name to use as a source",
         );
         info!("Default database name:{}", db.name());
-        Self {
-            sync_conn: conn,
-            db,
-        }
+        Self { conn, db }
     }
 
-    pub fn ping(&self) -> bool {
+    pub async fn ping(&self) -> bool {
         match self
-            .sync_conn
+            .conn
             .database(self.db.name())
             .run_command(doc! { "ping": 1 }, None)
+            .await
         {
             Ok(_) => {
                 info!("Database pinged. Connected!");
@@ -101,8 +99,8 @@ impl DBClient {
         }
     }
 
-    pub fn collections(&self) -> Result<Vec<String>, Box<dyn Error>> {
-        match self.db.list_collection_names(None) {
+    pub async fn collections(&self) -> Result<Vec<String>, Box<dyn Error>> {
+        match self.db.list_collection_names(None).await {
             Ok(list) => return Ok(list),
             Err(err) => Err(format!("error listing collection names: {}", err).into()),
         }
@@ -112,12 +110,12 @@ impl DBClient {
         return self.db.collection(name);
     }
 
-    pub fn generate_collection_flat_map(
+    pub async fn generate_collection_flat_map(
         &self,
         collection_name: &str,
     ) -> Result<HashMap<String, DocumentValue>, Box<dyn Error>> {
         let coll: Collection<Document> = self.collection(collection_name);
-        let result = match coll.find_one(None, None) {
+        let result = match coll.find_one(None, None).await {
             Ok(it) => it,
             Err(err) => return Err(format!("error finding the document: {}", err).into()),
         };
@@ -129,18 +127,6 @@ impl DBClient {
 
         return Ok(final_map);
     }
-}
-
-fn connect(uri: &str) -> mongodb::error::Result<Client> {
-    info!("Connecting to MongoDB...");
-    let mut client_options = ClientOptions::parse(uri)?;
-
-    // Set the server_api field of the client_options object to Stable API version 1
-    let server_api = ServerApi::builder().version(ServerApiVersion::V1).build();
-    client_options.server_api = Some(server_api);
-
-    // Create a new client and connect to the server
-    return Client::with_options(client_options);
 }
 
 //private functions ---
@@ -192,7 +178,7 @@ mod tests {
     use crate::mongo;
 
     use mongodb::bson::{doc, DateTime};
-    use mongodb::sync::Collection;
+    use mongodb::Collection;
     use std::collections::HashMap;
 
     use serde::{Deserialize, Serialize};
@@ -233,13 +219,13 @@ mod tests {
         residence: bool,
     }
 
-    #[test]
-    fn test_mongo_setup() {
-        let db_client: mongo::DBClient = setup();
+    #[tokio::test]
+    async fn test_mongo_setup() {
+        let db_client: mongo::DBClient = setup().await;
         let doc = build_test_document();
 
         let coll: Collection<TestDocument> = db_client.collection("test_collection");
-        let res = coll.insert_one(doc, None).expect("insert failed ");
+        let res = coll.insert_one(doc, None).await.expect("insert failed ");
         assert_ne!(res.inserted_id.to_string(), "");
     }
 
@@ -282,7 +268,7 @@ mod tests {
         return doc;
     }
 
-    fn setup() -> mongo::DBClient {
-        return mongo::DBClient::new("mongodb://localhost:27017/mosql");
+    async fn setup() -> mongo::DBClient {
+        return mongo::DBClient::new("mongodb://localhost:27017/mosql").await;
     }
 }

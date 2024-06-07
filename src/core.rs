@@ -2,7 +2,6 @@ use std::error::Error;
 
 use sea_orm::DatabaseConnection;
 
-use async_std::task;
 use migration::{Migrator, MigratorTrait};
 
 use ::entity::*;
@@ -15,44 +14,38 @@ pub struct SQLiteClient {
     pub conn: DatabaseConnection,
 }
 
-pub fn setup_sqlite_client(name: &str) -> SQLiteClient {
-    SQLiteClient::new(name)
+pub async fn setup_sqlite_client(name: &str) -> SQLiteClient {
+    SQLiteClient::new(name).await
 }
 
 impl SQLiteClient {
-    pub fn new(name: &str) -> Self {
+    pub async fn new(name: &str) -> Self {
         info!("Setting up sqlite database");
 
-        let sqlite_conn = task::block_on(async {
-            let database_url = format!("sqlite://{}_db.db?mode=rwc", name);
-            debug!("sqlite database url {}", database_url);
+        let database_url = format!("sqlite://{}_db.db?mode=rwc", name);
+        debug!("sqlite database url {}", database_url);
 
-            match setup_sqlite_connection(&database_url).await {
-                Ok(sqlite_conn) => {
-                    info!("Running migration...");
-                    if let Err(err) = migration::Migrator::up(&sqlite_conn, None).await {
-                        panic!("Error connecting to sqlite {}", err);
-                    }
-                    info!("Migration ran successfully");
-
-                    return sqlite_conn;
+        let conn = match setup_sqlite_connection(&database_url).await {
+            Ok(sqlite_conn) => {
+                info!("Running migration...");
+                if let Err(err) = migration::Migrator::up(&sqlite_conn, None).await {
+                    panic!("Error connecting to sqlite {}", err);
                 }
-                Err(err) => panic!("Error connecting to sqlite {}", err),
-            }
-        });
+                info!("Migration ran successfully");
 
-        Self { conn: sqlite_conn }
+                sqlite_conn
+            }
+            Err(err) => panic!("Error connecting to sqlite {}", err),
+        };
+
+        Self { conn }
     }
 
-    pub fn ping(&self) -> bool {
-        let res = task::block_on(async {
-            match self.conn.ping().await {
-                Ok(_) => return true,
-                Err(_) => return false,
-            }
-        });
-
-        return res;
+    pub async fn ping(&self) -> bool {
+        match self.conn.ping().await {
+            Ok(_) => return true,
+            Err(_) => return false,
+        }
     }
 }
 
@@ -206,7 +199,7 @@ impl ExportBuilder {
         return self.export.as_mut().unwrap();
     }
 
-    pub fn save(&mut self, db_client: &SQLiteClient) -> Result<bool, Box<dyn Error>> {
+    pub async fn save(&mut self, db_client: &SQLiteClient) -> Result<bool, Box<dyn Error>> {
         if self.export.is_none() {
             return Err(format!(
                 "export data not populated, use ExportBuilder to build the export first"
@@ -236,12 +229,12 @@ impl ExportBuilder {
         }
 
         let export = self.export.as_mut().unwrap();
+        self::check_and_delete_existing_export(db_client, export.namespace.as_str()).await?;
 
-        self::check_and_delete_existing_export(db_client, export.namespace.as_str())?;
+        let user_id = self::save_export_user(db_client, export).await?;
 
-        let user_id = self::save_export_user(db_client, export)?;
-        let source_conn_id = self::save_export_connection(db_client, "source", export)?;
-        let dest_conn_id = self::save_export_connection(db_client, "destination", export)?;
+        let source_conn_id = self::save_export_connection(db_client, "source", export).await?;
+        let dest_conn_id = self::save_export_connection(db_client, "destination", export).await?;
 
         let mut entity = export::ActiveModel {
             namespace: Set(export.namespace.to_owned()),
@@ -257,7 +250,7 @@ impl ExportBuilder {
             ..Default::default()
         };
 
-        let export_res = task::block_on(save_export(&db_client, &entity));
+        let export_res = save_export(&db_client, &entity).await;
         if let Err(err) = export_res {
             return Err(format!("Error saving export data: {}", err).into());
         }
@@ -276,7 +269,7 @@ impl ExportBuilder {
                 ..Default::default()
             };
 
-            let schema_res = task::block_on(schema_entity.insert(&db_client.conn));
+            let schema_res = schema_entity.insert(&db_client.conn).await;
             if let Err(err) = schema_res {
                 return Err(format!(
                     "Error saving schema data: {} for collection {}",
@@ -297,7 +290,7 @@ impl ExportBuilder {
                     version: Set(mapping.version.to_owned()),
                     ..Default::default()
                 };
-                let mapping_res = task::block_on(mapping_entity.insert(&db_client.conn));
+                let mapping_res = mapping_entity.insert(&db_client.conn).await;
                 if let Err(err) = mapping_res {
                     return Err(format!(
                         "Error saving schema data: {} for collection {}. Mapping entry failed",
@@ -317,13 +310,13 @@ impl ExportBuilder {
     }
 }
 
-fn check_and_delete_existing_export(
+async fn check_and_delete_existing_export(
     db_client: &SQLiteClient,
     namespace: &str,
 ) -> Result<(), Box<dyn Error>> {
     //check and delete existing export if it exists for the same namespace
-    if task::block_on(check_export_exists(&db_client, namespace)) {
-        match task::block_on(delete_export(&db_client, namespace)) {
+    if check_export_exists(&db_client, namespace).await {
+        match delete_export(&db_client, namespace).await {
             Ok(_) => info!("Deleted saved export"),
             Err(err) => {
                 return Err(format!("Failed to delete export: {}", err).into());
@@ -334,21 +327,20 @@ fn check_and_delete_existing_export(
     Ok(())
 }
 
-fn save_export_user(db_client: &SQLiteClient, export: &mut Export) -> Result<i32, Box<dyn Error>> {
+async fn save_export_user(
+    db_client: &SQLiteClient,
+    export: &mut Export,
+) -> Result<i32, Box<dyn Error>> {
     let user = export.creator.as_ref().unwrap();
     info!("User email check {}", user.email);
-    let user_id = task::block_on(user_by_email(db_client, &user.email.clone()));
+    let user_id = user_by_email(db_client, &user.email.clone()).await;
     info!("User id {}", user_id);
     if user_id > 0 {
         info!("found existing user");
         return Ok(user_id);
     }
 
-    let user_res = task::block_on(save_new_user(
-        db_client,
-        user.full_name.to_owned(),
-        user.email.to_owned(),
-    ));
+    let user_res = save_new_user(db_client, user.full_name.to_owned(), user.email.to_owned()).await;
     if let Err(err) = user_res {
         return Err(format!("error saving user data: {}", err).into());
     }
@@ -360,7 +352,7 @@ fn save_export_user(db_client: &SQLiteClient, export: &mut Export) -> Result<i32
     Ok(user_id)
 }
 
-fn save_export_connection(
+async fn save_export_connection(
     db_client: &SQLiteClient,
     conn_type: &str,
     export: &mut Export,
@@ -387,7 +379,7 @@ fn save_export_connection(
             .to_owned()
     };
 
-    let source_conn_res = task::block_on(save_data_source_connection(db_client, name, conn_string));
+    let source_conn_res = save_data_source_connection(db_client, name, conn_string).await;
     if let Err(err) = source_conn_res {
         return Err(format!("error saving source connection data: {}", err).into());
     }
@@ -516,19 +508,18 @@ async fn setup_sqlite_connection(database_url: &str) -> Result<DatabaseConnectio
 #[cfg(test)]
 mod tests {
     use crate::core;
-    use async_std::task;
     use entity::*;
     use rand::{distributions::Alphanumeric, Rng};
 
     use super::SQLiteClient;
 
-    #[test]
-    fn test_sqlite_crud_operation() {
-        let sqlite = core::setup_sqlite_client("mosql_test");
+    #[tokio::test]
+    async fn test_sqlite_crud_operation() {
+        let sqlite = core::setup_sqlite_client("mosql_test").await;
 
-        let user = test_core_save_user(&sqlite);
-        let data_source_conn_src = test_core_save_data_source_connection(&sqlite);
-        let data_source_conn_dest = test_core_save_data_source_connection(&sqlite);
+        let user = test_core_save_user(&sqlite).await;
+        let data_source_conn_src = test_core_save_data_source_connection(&sqlite).await;
+        let data_source_conn_dest = test_core_save_data_source_connection(&sqlite).await;
 
         assert!(user.id > 0);
         assert!(data_source_conn_src.id > 0);
@@ -607,7 +598,7 @@ mod tests {
             .set_creator_info(creator.clone())
             .set_updator_info(creator);
 
-        let saved = export_builder.save(&sqlite).expect("Save failed");
+        let saved = export_builder.save(&sqlite).await.expect("Save failed");
         assert!(saved);
 
         let saved_export = export_builder
@@ -628,7 +619,8 @@ mod tests {
             saved_export.destination_connection_id
         );
 
-        if let Err(err) = core::check_and_delete_existing_export(&sqlite, namespace.as_str()) {
+        if let Err(err) = core::check_and_delete_existing_export(&sqlite, namespace.as_str()).await
+        {
             panic!("test failed: {}", err);
         } else {
             println!("deleted export {}", namespace.clone());
@@ -657,7 +649,7 @@ mod tests {
         };
     }
 
-    fn test_core_save_user(sqlite: &core::SQLiteClient) -> user::Model {
+    async fn test_core_save_user(sqlite: &core::SQLiteClient) -> user::Model {
         let full_name = format!(
             "{} {}",
             generate_random_string(6),
@@ -669,7 +661,8 @@ mod tests {
             generate_random_string(5)
         );
 
-        let user = task::block_on(core::save_new_user(&sqlite, full_name.clone(), email))
+        let user = core::save_new_user(&sqlite, full_name.clone(), email)
+            .await
             .expect("Error creating user");
 
         assert_eq!(user.full_name, full_name);
@@ -678,13 +671,14 @@ mod tests {
         return user;
     }
 
-    fn test_core_save_data_source_connection(sqlite: &SQLiteClient) -> connection::Model {
+    async fn test_core_save_data_source_connection(sqlite: &SQLiteClient) -> connection::Model {
         let name = format!("mongo_{}", generate_random_string(5));
-        let data_source_conn = task::block_on(core::save_data_source_connection(
+        let data_source_conn = core::save_data_source_connection(
             &sqlite,
             name.clone(),
             "mongo://localhost:27017".to_string(),
-        ))
+        )
+        .await
         .expect("Error creating data source connection");
 
         assert_eq!(data_source_conn.name, name);
