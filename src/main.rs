@@ -98,6 +98,21 @@ impl ExportArgInput {
         }
         return true;
     }
+
+    pub fn input_field(&self) -> &str {
+        match self.info_type {
+            ExportInfoType::SourceDatabaseName => "source database name",
+            ExportInfoType::SourceDatabaseConnString => "source database connection string",
+            ExportInfoType::DestinationDatabaseName => "destination database name",
+            ExportInfoType::DestinationDatabaseConnString => {
+                "destination database connection string"
+            }
+            ExportInfoType::IncludeCollections => "collections to include",
+            ExportInfoType::ExcludeCollections => "collections to exclude",
+            ExportInfoType::UserName => "user name",
+            ExportInfoType::Email => "user email",
+        }
+    }
 }
 
 async fn export_init() -> Result<(), Box<dyn std::error::Error>> {
@@ -157,15 +172,29 @@ async fn export_init() -> Result<(), Box<dyn std::error::Error>> {
     loop {
         for ei in export_info_list.iter_mut() {
             loop {
-                print!("> {}:", ei.prompt_text.to_owned());
+                let mut update_value = false;
+                if ei.user_input.is_empty() {
+                    print!("> {}:", ei.prompt_text.to_owned());
+                } else {
+                    update_value = true;
+                    println!(
+                        "Update current value: {} for {}. Press return to keep it same",
+                        ei.user_input.to_owned(),
+                        ei.input_field()
+                    );
+                    print!("> {}:", ei.prompt_text.to_owned());
+                }
 
                 io::stdout().flush().unwrap();
-
                 let mut input = String::new();
                 io::stdin()
                     .read_line(&mut input)
                     .expect("Error reading the input");
 
+                if update_value && input.len() <= 1 {
+                    //user didn't change existing value
+                    input = ei.user_input.clone();
+                }
                 if ei.validate(input.clone()) {
                     ei.user_input = input.clone();
                     println!(">> {}", input);
@@ -178,7 +207,7 @@ async fn export_init() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        println!("> Save(Y/N) - Press Y to save and N to change the export details:");
+        print!("> Save(Y/N) - Press Y to save and N to change the export details:");
 
         let mut input = String::new();
         io::stdin()
