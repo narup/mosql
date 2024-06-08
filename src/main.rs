@@ -55,18 +55,49 @@ struct Cli {
     command: Command,
 }
 
-#[derive(StructOpt)]
+#[derive(StructOpt, Debug)]
 enum Command {
-    #[structopt(name = "export-init", about = "Initialize the export")]
-    ExportInit,
+    #[structopt(
+        name = "export",
+        about = "Export related commands to initialize, list, update, save, and start different exports"
+    )]
+    Export(ExportCommand),
+    #[structopt(name = "admin", about = "Start web admin console")]
+    Admin,
+}
+
+#[derive(StructOpt, Debug)]
+enum ExportCommand {
+    #[structopt(about = "Initialize new export")]
+    Init,
+    #[structopt(about = "Start an export with the given name")]
+    Start {
+        #[structopt(help = "Export name to start")]
+        export_name: String,
+    },
+    #[structopt(about = "List all available exports")]
+    List,
+    #[structopt(about = "Generate default schema mapping files for a given export name")]
+    GenerateDefaultMapping {
+        #[structopt(help = "Unique export name")]
+        export_name: String,
+    },
+    LoadSchemaMapping {
+        #[structopt(help = "Schema mapping files directory path")]
+        file_path: String,
+        #[structopt(help = "Export name")]
+        export_name: String,
+    },
 }
 
 impl Command {
     async fn run(&self) -> Result<(), Box<dyn std::error::Error>> {
         match self {
-            Command::ExportInit => {
-                export_init().await?;
-            }
+            Command::Export(subcommand) => match subcommand {
+                ExportCommand::Init => export_init().await?,
+                _ => println!("Command not supported"),
+            },
+            Command::Admin => println!("Web admin console running...."),
         }
         Ok(())
     }
