@@ -5,7 +5,7 @@
 **This is still a work in progress. Not ready for production use**
 # Getting Started
 
- - Initialize new database export and configure
+## Initialize new database export and configure
  ``` $ mosql export init <namespace> ```
 above command will prompt you for more details about the export
 - `$ Source database name: `
@@ -28,7 +28,7 @@ above command will prompt you for more details about the export
    ```
 	Directly running an export also generates a default schema mapping behind the scenes. But, it's recommended to generate a mapping and verify before running an export
 
- - Generate default schema mappings    
+## Generate default schema mappings    
  ``` $ mosql export generate_default_mappings ```
  this command helps generate the default mappings between the mongo collections to postgres tables which you can modify it. By default, collection keys are mapped to postgres table column name one-to-one. Some default convention followed for this default mapping
 			 - collection name is converted to snake case for SQL table name. e.g. collection `emailLogs` become `email_logs`
