@@ -11,52 +11,79 @@ use std::io::prelude::*;
 #[derive(Debug, Display)]
 pub enum MoSQLError {
     MongoError(String),
+    PostgresError(String),
 }
 
 pub struct Exporter {
     namespace: String,
     sqlite_client: core::SQLiteClient,
-    postgres_client: sql::PostgresClient,
-    mongo_client: mongo::DBClient,
+    postgres_client: Option<sql::PostgresClient>,
+    mongo_client: Option<mongo::DBClient>,
     export_builder: core::ExportBuilder,
 }
 
 impl Exporter {
-    pub async fn new(
-        namespace: &str,
-        export_type: &str,
-        source_db_uri: &str,
-        destination_db_uri: &str,
-    ) -> Self {
-        //source database - mongo
-        let mongo_client = mongo::setup_client(source_db_uri).await;
-        assert!(mongo_client.ping().await);
-
-        info!("connected to source database {}", source_db_uri);
-
-        let postgres_client = sql::setup_postgres_client(destination_db_uri).await;
-        assert!(postgres_client.ping().await);
-
-        info!("connected to destination database {}", destination_db_uri);
-
+    pub async fn new(namespace: &str) -> Self {
         //sqlite used for mosql specific data
         let sqlite_client = core::setup_sqlite_client("mosql").await;
         assert!(sqlite_client.ping().await);
 
         info!("mosql core sqlite database setup complete");
 
-        let mut export_builder = core::ExportBuilder::init_new_export(namespace, export_type);
-        export_builder
-            .add_connection("source", "mongo", source_db_uri)
-            .add_connection("destination", "postgres", destination_db_uri);
-
+        let export_builder = core::ExportBuilder::init_new_export(namespace, "mongo_to_postgres");
         Self {
             namespace: namespace.to_string(),
             sqlite_client,
-            postgres_client,
-            mongo_client,
+            postgres_client: None,
+            mongo_client: None,
             export_builder,
         }
+    }
+
+    pub async fn connect_source_db(&mut self) -> Result<(), MoSQLError> {
+        //source database - mongo
+        if let Some(connection) = &self.export_builder.get_export().source_connection {
+            let conn_uri = connection.connection_string.as_str();
+            let mongo_client = mongo::setup_client(conn_uri).await;
+            assert!(mongo_client.ping().await);
+
+            info!("connected to source database {}", conn_uri);
+
+            self.mongo_client = Some(mongo_client);
+            Ok(())
+        } else {
+            Err(MoSQLError::MongoError(
+                "Source database connection info not found".to_owned(),
+            ))
+        }
+    }
+
+    pub async fn connect_destination_db(&mut self) -> Result<(), MoSQLError> {
+        //source database - mongo
+        if let Some(connection) = &self.export_builder.get_export().destination_connection {
+            let conn_uri = connection.connection_string.as_str();
+            let postgres_client = sql::setup_postgres_client(conn_uri).await;
+            assert!(postgres_client.ping().await);
+
+            info!("connected to destination database {}", conn_uri);
+            self.postgres_client = Some(postgres_client);
+
+            Ok(())
+        } else {
+            Err(MoSQLError::PostgresError(
+                "Destination database connection info not found".to_owned(),
+            ))
+        }
+    }
+
+    pub fn set_source_db(&mut self, name: &str, connection_string: &str) {
+        self.export_builder
+            .add_connection("source", name, connection_string);
+    }
+
+    pub fn set_destination_db(&mut self, name: &str, connection_string: &str) {
+        self.export_builder
+            .add_connection("destination", name, connection_string);
     }
 
     pub fn exclude_collections(&mut self, collections: Vec<String>) {
@@ -79,7 +106,11 @@ impl Exporter {
     }
 
     pub async fn generate_default_schema_mapping(&mut self) -> Result<(), MoSQLError> {
-        match self.mongo_client.collections().await {
+        if self.mongo_client.is_none() {
+            self.connect_source_db().await?;
+        }
+
+        match self.mongo_client.as_ref().unwrap().collections().await {
             Err(err) => Err(MoSQLError::MongoError(err.to_string())),
             Ok(collections) => {
                 let mut schemas = Vec::new();
@@ -120,15 +151,20 @@ impl Exporter {
         let _ = self.export_builder.save(&self.sqlite_client);
     }
 
-    pub async fn start_full_export(&mut self) {
-        self.postgres_client.ping().await;
+    pub async fn start_full_export(self) {
+        self.postgres_client.unwrap().ping().await;
     }
 
-    async fn generate_schema_mapping(&self, collection: &str) -> Result<core::Schema, MoSQLError> {
+    async fn generate_schema_mapping(
+        &mut self,
+        collection: &str,
+    ) -> Result<core::Schema, MoSQLError> {
         info!("Generating schema mapping for collection {}", collection);
 
         match self
             .mongo_client
+            .as_ref()
+            .unwrap()
             .generate_collection_flat_map(collection)
             .await
         {

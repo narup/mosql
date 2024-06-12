@@ -62,7 +62,7 @@ pub struct Export {
     pub include_filters: Vec<String>,
     pub schemas: Vec<Schema>,
     pub source_connection: Option<Connection>,
-    pub dest_connection: Option<Connection>,
+    pub destination_connection: Option<Connection>,
     pub creator: Option<User>,
     pub updator: Option<User>,
 }
@@ -127,7 +127,7 @@ impl ExportBuilder {
                 include_filters: Vec::new(),
                 schemas: Vec::new(),
                 source_connection: None,
-                dest_connection: None,
+                destination_connection: None,
                 creator: None,
                 updator: None,
             }),
@@ -149,7 +149,7 @@ impl ExportBuilder {
         if conn_type == "source" {
             self.export.as_mut().unwrap().source_connection = Some(conn);
         } else {
-            self.export.as_mut().unwrap().dest_connection = Some(conn);
+            self.export.as_mut().unwrap().destination_connection = Some(conn);
         }
 
         self
@@ -221,7 +221,13 @@ impl ExportBuilder {
             .into());
         }
 
-        if self.export.as_ref().unwrap().dest_connection.is_none() {
+        if self
+            .export
+            .as_ref()
+            .unwrap()
+            .destination_connection
+            .is_none()
+        {
             return Err(format!(
                 "destination db connection not defined, use ExportBuilder to build the export first"
             )
@@ -315,11 +321,17 @@ async fn check_and_delete_existing_export(
     namespace: &str,
 ) -> Result<(), Box<dyn Error>> {
     //check and delete existing export if it exists for the same namespace
-    if check_export_exists(&db_client, namespace).await {
+    let (yes, saved_export) = check_export_exists(&db_client, namespace).await;
+    if yes {
         match delete_export(&db_client, namespace).await {
-            Ok(_) => info!("Deleted saved export"),
+            Ok(_) => info!("Deleted saved export with id {}", saved_export.unwrap().id),
             Err(err) => {
-                return Err(format!("Failed to delete export: {}", err).into());
+                return Err(format!(
+                    "Failed to delete export with id: {}, error: {}",
+                    saved_export.unwrap().id,
+                    err
+                )
+                .into());
             }
         }
     }
@@ -360,7 +372,12 @@ async fn save_export_connection(
     let name = if conn_type == "source" {
         export.source_connection.as_mut().unwrap().name.to_owned()
     } else {
-        export.dest_connection.as_mut().unwrap().name.to_owned()
+        export
+            .destination_connection
+            .as_mut()
+            .unwrap()
+            .name
+            .to_owned()
     };
 
     let conn_string = if conn_type == "source" {
@@ -372,7 +389,7 @@ async fn save_export_connection(
             .to_owned()
     } else {
         export
-            .dest_connection
+            .destination_connection
             .as_mut()
             .unwrap()
             .connection_string
@@ -387,7 +404,7 @@ async fn save_export_connection(
     if conn_type == "source" {
         export.source_connection.as_mut().unwrap().id = Some(conn_id);
     } else {
-        export.dest_connection.as_mut().unwrap().id = Some(conn_id);
+        export.destination_connection.as_mut().unwrap().id = Some(conn_id);
     }
 
     Ok(conn_id)
@@ -429,7 +446,10 @@ pub async fn save_new_user(
     return u.insert(&db_client.conn).await;
 }
 
-pub async fn check_export_exists(db_client: &SQLiteClient, namespace: &str) -> bool {
+pub async fn check_export_exists(
+    db_client: &SQLiteClient,
+    namespace: &str,
+) -> (bool, Option<export::Model>) {
     match export::Entity::find()
         .from_raw_sql(Statement::from_sql_and_values(
             DbBackend::Sqlite,
@@ -442,15 +462,15 @@ pub async fn check_export_exists(db_client: &SQLiteClient, namespace: &str) -> b
         Ok(model) => {
             if let Some(export) = model {
                 debug!("Found export model - {:?}", export);
-                return true;
+                return (true, Some(export));
             } else {
                 debug!("No saved export found for namespace {}", namespace);
-                return false;
+                return (false, None);
             }
         }
         Err(err) => {
             debug!("Error checking export count - {}", err);
-            return false;
+            return (false, None);
         }
     }
 }
