@@ -12,6 +12,7 @@ use std::io::prelude::*;
 pub enum MoSQLError {
     MongoError(String),
     PostgresError(String),
+    PersistenceError(String),
 }
 
 pub struct Exporter {
@@ -147,8 +148,22 @@ impl Exporter {
         }
     }
 
-    pub fn save(&mut self) {
-        let _ = self.export_builder.save(&self.sqlite_client);
+    pub async fn save(&mut self) -> Result<core::Export, MoSQLError> {
+        match self.export_builder.save(&self.sqlite_client).await {
+            Err(err) => {
+                Err(MoSQLError::PersistenceError(format!("Save failed. Error: {}", err)).into())
+            }
+            Ok(saved) => {
+                if saved {
+                    let saved_export = self.export_builder.get_export();
+                    Ok(saved_export)
+                } else {
+                    Err(MoSQLError::PersistenceError(
+                        "Save failed. Unknown error".to_string(),
+                    ))
+                }
+            }
+        }
     }
 
     pub async fn start_full_export(self) {

@@ -42,16 +42,13 @@ impl SQLiteClient {
     }
 
     pub async fn ping(&self) -> bool {
-        match self.conn.ping().await {
-            Ok(_) => return true,
-            Err(_) => return false,
-        }
+        self.conn.ping().await.is_ok()
     }
 }
 
 //-- export models for data transfers
 //
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Export {
     #[serde(skip_serializing, skip_deserializing)]
     pub id: Option<i32>,
@@ -67,7 +64,13 @@ pub struct Export {
     pub updator: Option<User>,
 }
 
-#[derive(Serialize, Deserialize)]
+impl Export {
+    pub fn has_schemas(&self) -> bool {
+        self.schemas.len() > 0
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Schema {
     #[serde(skip_serializing, skip_deserializing)]
     pub id: Option<i32>,
@@ -80,7 +83,7 @@ pub struct Schema {
     pub mappings: Vec<Mapping>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Mapping {
     #[serde(skip_serializing, skip_deserializing)]
     pub id: Option<i32>,
@@ -195,23 +198,25 @@ impl ExportBuilder {
         }
     }
 
-    pub fn get_export(&mut self) -> &Export {
+    pub fn mut_export(&mut self) -> &Export {
         return self.export.as_mut().unwrap();
+    }
+
+    pub fn get_export(&self) -> Export {
+        self.export.as_ref().unwrap().clone()
     }
 
     pub async fn save(&mut self, db_client: &SQLiteClient) -> Result<bool, Box<dyn Error>> {
         if self.export.is_none() {
-            return Err(format!(
-                "export data not populated, use ExportBuilder to build the export first"
-            )
-            .into());
+            return Err(
+                "export data not populated, use ExportBuilder to build the export first".into(),
+            );
         }
 
         if self.export.as_ref().unwrap().creator.is_none() {
-            return Err(format!(
-                "export user cannot be blank, use ExportBuilder to build the export first"
-            )
-            .into());
+            return Err(
+                "export user cannot be blank, use ExportBuilder to build the export first".into(),
+            );
         }
 
         if self.export.as_ref().unwrap().source_connection.is_none() {
@@ -256,13 +261,13 @@ impl ExportBuilder {
             ..Default::default()
         };
 
-        let export_res = save_export(&db_client, &entity).await;
-        if let Err(err) = export_res {
-            return Err(format!("Error saving export data: {}", err).into());
+        let export_res = save_export(&db_client, &entity).await?;
+        let export_id = export_res.id;
+        export.id = Some(export_id);
+
+        if export.has_schemas() {
+            info!("Persist export schemas");
         }
-
-        let export_id = export_res.unwrap().id;
-
         //update the id values on the Export struct model
         for schema in self.export.as_mut().unwrap().schemas.iter_mut() {
             let schema_entity = ::entity::schema::ActiveModel {

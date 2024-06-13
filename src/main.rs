@@ -9,7 +9,7 @@ use structopt::StructOpt;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let _ = simple_logger::SimpleLogger::new()
+    simple_logger::SimpleLogger::new()
         .with_level(log::LevelFilter::Info)
         .env()
         .init()
@@ -19,21 +19,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut exporter = mosql::Exporter::new("mosql").await;
     let args = Cli::from_args();
-    args.command.run(exporter).await?;
+    args.command.run(&mut exporter).await?;
     Ok(())
 }
 
 #[warn(dead_code)]
 async fn another_main() {
-    // Define a logger target for output. Here, we use stdout.
-    let _ = simple_logger::SimpleLogger::new()
-        .with_level(log::LevelFilter::Info)
-        .env()
-        .init()
-        .unwrap();
-
-    info!("Starting MoSQL");
-
     let mut exporter = mosql::Exporter::new("mosql").await;
 
     exporter.exclude_collections(vec![
@@ -98,7 +89,7 @@ enum ExportCommand {
 }
 
 impl Command {
-    async fn run(&self, exporter: mosql::Exporter) -> Result<(), Box<dyn std::error::Error>> {
+    async fn run(&self, exporter: &mut mosql::Exporter) -> Result<(), Box<dyn std::error::Error>> {
         match self {
             Command::Export(subcommand) => match subcommand {
                 ExportCommand::Init { export_name } => {
@@ -208,7 +199,7 @@ impl ExportArgInput {
 
 async fn export_init(
     namespace: String,
-    exporter: Exporter,
+    exporter: &mut Exporter,
 ) -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "Initializing export '{}'. Please provide a few more details about the export:",
@@ -321,6 +312,23 @@ async fn export_init(
     for ei in export_info_list.iter() {
         println!("{}:{}", ei.prompt_text.clone(), ei.user_input.clone());
     }
+
+    exporter.set_source_db(
+        export_data.source_db_name.unwrap().as_str(),
+        export_data.source_db_uri.unwrap().as_str(),
+    );
+    exporter.set_destination_db(
+        export_data.destination_db_name.unwrap().as_str(),
+        export_data.destination_db_uri.unwrap().as_str(),
+    );
+    exporter.include_collections(export_data.include_collections);
+    exporter.exclude_collections(export_data.exclude_collections);
+    exporter.set_creator(
+        export_data.email.unwrap().as_str(),
+        export_data.user_name.unwrap().as_str(),
+    );
+
+    exporter.save();
 
     Ok(())
 }
