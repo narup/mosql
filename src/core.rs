@@ -66,7 +66,7 @@ pub struct Export {
 
 impl Export {
     pub fn has_schemas(&self) -> bool {
-        self.schemas.len() > 0
+        !self.schemas.is_empty()
     }
 }
 
@@ -121,7 +121,7 @@ pub struct ExportBuilder {
 
 impl ExportBuilder {
     pub fn init_new_export(namespace: &str, export_type: &str) -> ExportBuilder {
-        return ExportBuilder {
+        ExportBuilder {
             export: Some(Export {
                 id: None,
                 namespace: namespace.to_string(),
@@ -135,7 +135,7 @@ impl ExportBuilder {
                 updator: None,
             }),
             entity: None,
-        };
+        }
     }
 
     pub fn add_connection(
@@ -160,27 +160,27 @@ impl ExportBuilder {
 
     pub fn include_collections(&mut self, collections: Vec<String>) -> &mut Self {
         self.export.as_mut().unwrap().include_filters = collections;
-        return self;
+        self
     }
 
     pub fn exclude_collections(&mut self, collections: Vec<String>) -> &mut Self {
         self.export.as_mut().unwrap().exclude_filters = collections;
-        return self;
+        self
     }
 
     pub fn set_updator_info(&mut self, user: User) -> &mut Self {
         self.export.as_mut().unwrap().updator = Some(user);
-        return self;
+        self
     }
 
     pub fn set_creator_info(&mut self, user: User) -> &mut Self {
         self.export.as_mut().unwrap().creator = Some(user);
-        return self;
+        self
     }
 
     pub fn set_schemas(&mut self, schemas: Vec<Schema>) -> &mut Self {
         self.export.as_mut().unwrap().schemas = schemas;
-        return self;
+        self
     }
 
     pub fn export_entity(&self) -> Option<::entity::export::Model> {
@@ -190,16 +190,16 @@ impl ExportBuilder {
         }
 
         match self.entity.clone().unwrap().try_into_model() {
-            Ok(model) => return Some(model),
+            Ok(model) => Some(model),
             Err(err) => {
                 println!("ERROR: {}", err);
-                return None;
+                None
             }
         }
     }
 
     pub fn mut_export(&mut self) -> &Export {
-        return self.export.as_mut().unwrap();
+        self.export.as_mut().unwrap()
     }
 
     pub fn get_export(&self) -> Export {
@@ -220,10 +220,10 @@ impl ExportBuilder {
         }
 
         if self.export.as_ref().unwrap().source_connection.is_none() {
-            return Err(format!(
+            return Err(
                 "source db connection not defined, use ExportBuilder to build the export first"
-            )
-            .into());
+                    .into(),
+            );
         }
 
         if self
@@ -233,9 +233,8 @@ impl ExportBuilder {
             .destination_connection
             .is_none()
         {
-            return Err(format!(
+            return Err(
                 "destination db connection not defined, use ExportBuilder to build the export first"
-            )
             .into());
         }
 
@@ -261,7 +260,7 @@ impl ExportBuilder {
             ..Default::default()
         };
 
-        let export_res = save_export(&db_client, &entity).await?;
+        let export_res = save_export(db_client, &entity).await?;
         let export_id = export_res.id;
         export.id = Some(export_id);
 
@@ -317,7 +316,7 @@ impl ExportBuilder {
         entity.id = Set(export_id);
         self.entity = Some(entity.clone());
 
-        return Ok(true);
+        Ok(true)
     }
 }
 
@@ -326,9 +325,9 @@ async fn check_and_delete_existing_export(
     namespace: &str,
 ) -> Result<(), Box<dyn Error>> {
     //check and delete existing export if it exists for the same namespace
-    let (yes, saved_export) = check_export_exists(&db_client, namespace).await;
+    let (yes, saved_export) = check_export_exists(db_client, namespace).await;
     if yes {
-        match delete_export(&db_client, namespace).await {
+        match delete_export(db_client, namespace).await {
             Ok(_) => info!("Deleted saved export with id {}", saved_export.unwrap().id),
             Err(err) => {
                 return Err(format!(
@@ -419,7 +418,7 @@ pub async fn save_export(
     db_client: &SQLiteClient,
     new_export: &export::ActiveModel,
 ) -> Result<export::Model, DbErr> {
-    return new_export.clone().insert(&db_client.conn).await;
+    new_export.clone().insert(&db_client.conn).await
 }
 
 pub async fn save_data_source_connection(
@@ -433,7 +432,7 @@ pub async fn save_data_source_connection(
         ..Default::default()
     };
 
-    return c.insert(&db_client.conn).await;
+    c.insert(&db_client.conn).await
 }
 
 pub async fn save_new_user(
@@ -448,7 +447,7 @@ pub async fn save_new_user(
         ..Default::default()
     };
 
-    return u.insert(&db_client.conn).await;
+    u.insert(&db_client.conn).await
 }
 
 pub async fn check_export_exists(
@@ -467,15 +466,15 @@ pub async fn check_export_exists(
         Ok(model) => {
             if let Some(export) = model {
                 debug!("Found export model - {:?}", export);
-                return (true, Some(export));
+                (true, Some(export))
             } else {
                 debug!("No saved export found for namespace {}", namespace);
-                return (false, None);
+                (false, None)
             }
         }
         Err(err) => {
             debug!("Error checking export count - {}", err);
-            return (false, None);
+            (false, None)
         }
     }
 }
@@ -493,15 +492,15 @@ pub async fn user_by_email(db_client: &SQLiteClient, email: &str) -> i32 {
         Ok(model) => {
             if let Some(user) = model {
                 info!("Found user model - {:?}", user);
-                return user.id;
+                user.id
             } else {
                 info!("No saved user found for email {}", email);
-                return -1;
+                -1
             }
         }
         Err(err) => {
             info!("Error checking user count - {}", err);
-            return -1;
+            -1
         }
     }
 }
@@ -526,8 +525,7 @@ pub async fn delete_export(
 async fn setup_sqlite_connection(database_url: &str) -> Result<DatabaseConnection, sea_orm::DbErr> {
     let connection = sea_orm::Database::connect(database_url).await?;
     Migrator::up(&connection, None).await?;
-
-    return Ok(connection);
+    Ok(connection)
 }
 
 #[cfg(test)]
@@ -666,12 +664,12 @@ mod tests {
             generate_random_string(5)
         );
 
-        return core::User {
+        core::User {
             id: None,
             full_name,
             email,
             created_at: "date".to_string(),
-        };
+        }
     }
 
     async fn test_core_save_user(sqlite: &core::SQLiteClient) -> user::Model {
@@ -686,20 +684,20 @@ mod tests {
             generate_random_string(5)
         );
 
-        let user = core::save_new_user(&sqlite, full_name.clone(), email)
+        let user = core::save_new_user(sqlite, full_name.clone(), email)
             .await
             .expect("Error creating user");
 
         assert_eq!(user.full_name, full_name);
         assert!(user.id > 0);
 
-        return user;
+        user
     }
 
     async fn test_core_save_data_source_connection(sqlite: &SQLiteClient) -> connection::Model {
         let name = format!("mongo_{}", generate_random_string(5));
         let data_source_conn = core::save_data_source_connection(
-            &sqlite,
+            sqlite,
             name.clone(),
             "mongo://localhost:27017".to_string(),
         )
@@ -709,7 +707,7 @@ mod tests {
         assert_eq!(data_source_conn.name, name);
         assert!(data_source_conn.id > 0);
 
-        return data_source_conn;
+        data_source_conn
     }
 
     fn generate_random_string(length: usize) -> String {

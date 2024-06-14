@@ -3,7 +3,7 @@ mod mongo;
 mod mosql;
 mod sql;
 use log::info;
-use mosql::Exporter;
+use mosql::{Exporter, MoSQLError};
 use std::io::{self, Write};
 use structopt::StructOpt;
 
@@ -139,7 +139,7 @@ impl ExportArgInput {
             println!("Value required. Try again!");
             return false;
         }
-        return true;
+        true
     }
 
     pub fn input_field(&self) -> &str {
@@ -328,7 +328,14 @@ async fn export_init(
         export_data.user_name.unwrap().as_str(),
     );
 
-    exporter.save();
+    match exporter.save().await {
+        Err(err) => match err {
+            MoSQLError::Mongo(error) => println!("{}", error),
+            MoSQLError::Postgres(error) => println!("{}", error),
+            MoSQLError::Persistence(error) => println!("{}", error),
+        },
+        Ok(_) => println!("export saved"),
+    }
 
     Ok(())
 }

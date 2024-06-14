@@ -10,9 +10,9 @@ use std::io::prelude::*;
 
 #[derive(Debug, Display)]
 pub enum MoSQLError {
-    MongoError(String),
-    PostgresError(String),
-    PersistenceError(String),
+    Mongo(String),
+    Postgres(String),
+    Persistence(String),
 }
 
 pub struct Exporter {
@@ -53,8 +53,8 @@ impl Exporter {
             self.mongo_client = Some(mongo_client);
             Ok(())
         } else {
-            Err(MoSQLError::MongoError(
-                "Source database connection info not found".to_owned(),
+            Err(MoSQLError::Mongo(
+                "Source database connection info not found".to_string(),
             ))
         }
     }
@@ -71,7 +71,7 @@ impl Exporter {
 
             Ok(())
         } else {
-            Err(MoSQLError::PostgresError(
+            Err(MoSQLError::Postgres(
                 "Destination database connection info not found".to_owned(),
             ))
         }
@@ -112,7 +112,7 @@ impl Exporter {
         }
 
         match self.mongo_client.as_ref().unwrap().collections().await {
-            Err(err) => Err(MoSQLError::MongoError(err.to_string())),
+            Err(err) => Err(MoSQLError::Mongo(err.to_string())),
             Ok(collections) => {
                 let mut schemas = Vec::new();
                 for collection in collections.iter() {
@@ -121,7 +121,7 @@ impl Exporter {
                         collection.clone()
                     );
                     let schema = self.generate_schema_mapping(collection).await;
-                    schemas.push(schema.ok().expect("error with schema"));
+                    schemas.push(schema.expect("error with schema"));
                 }
 
                 match self
@@ -150,15 +150,16 @@ impl Exporter {
 
     pub async fn save(&mut self) -> Result<core::Export, MoSQLError> {
         match self.export_builder.save(&self.sqlite_client).await {
-            Err(err) => {
-                Err(MoSQLError::PersistenceError(format!("Save failed. Error: {}", err)).into())
-            }
+            Err(err) => Err(MoSQLError::Persistence(format!(
+                "Save failed. Error: {}",
+                err
+            ))),
             Ok(saved) => {
                 if saved {
                     let saved_export = self.export_builder.get_export();
                     Ok(saved_export)
                 } else {
-                    Err(MoSQLError::PersistenceError(
+                    Err(MoSQLError::Persistence(
                         "Save failed. Unknown error".to_string(),
                     ))
                 }
@@ -193,7 +194,7 @@ impl Exporter {
                     //table name. for instance "my_collection.fieldName" becomes "field_name"
                     let prefix_len = collection.len();
                     let sql_field_name = &key[(prefix_len + 1)..];
-                    let sql_field_name = camel_to_snake(&sql_field_name.replace(".", "_"));
+                    let sql_field_name = camel_to_snake(&sql_field_name.replace('.', "_"));
 
                     let mapping = core::Mapping {
                         id: None,
@@ -216,10 +217,10 @@ impl Exporter {
                     mappings,
                 };
 
-                return Ok(schema);
+                Ok(schema)
             }
-            Err(err) => return Err(MoSQLError::MongoError(err.to_string())),
-        };
+            Err(err) => Err(MoSQLError::Mongo(err.to_string())),
+        }
     }
 }
 
