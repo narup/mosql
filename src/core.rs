@@ -71,6 +71,18 @@ impl Export {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
+pub struct ExportJSON {
+    pub namespace: String,
+    pub export_type: String,
+    pub exclude_filters: Vec<String>,
+    pub include_filters: Vec<String>,
+    pub source_connection: Option<Connection>,
+    pub destination_connection: Option<Connection>,
+    pub creator: Option<User>,
+    pub updator: Option<User>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Schema {
     #[serde(skip_serializing, skip_deserializing)]
     pub id: Option<i32>,
@@ -120,7 +132,7 @@ pub struct ExportBuilder {
 }
 
 impl ExportBuilder {
-    pub fn init_new_export(namespace: &str, export_type: &str) -> ExportBuilder {
+    pub fn init_export(namespace: &str, export_type: &str) -> ExportBuilder {
         ExportBuilder {
             export: Some(Export {
                 id: None,
@@ -204,6 +216,20 @@ impl ExportBuilder {
 
     pub fn get_export(&self) -> Export {
         self.export.as_ref().unwrap().clone()
+    }
+
+    pub fn get_export_json(&self) -> ExportJSON {
+        let export = self.export.as_ref().unwrap();
+        ExportJSON {
+            namespace: export.namespace.clone(),
+            export_type: export.export_type.clone(),
+            exclude_filters: export.exclude_filters.clone(),
+            include_filters: export.include_filters.clone(),
+            source_connection: export.source_connection.clone(),
+            destination_connection: export.destination_connection.clone(),
+            creator: export.creator.clone(),
+            updator: export.updator.clone(),
+        }
     }
 
     pub async fn save(&mut self, db_client: &SQLiteClient) -> Result<bool, Box<dyn Error>> {
@@ -550,7 +576,7 @@ mod tests {
 
         let namespace = generate_random_string(6);
         let mut export_builder =
-            core::ExportBuilder::init_new_export(namespace.as_str(), "mongo_to_postgres");
+            core::ExportBuilder::init_export(namespace.as_str(), "mongo_to_postgres");
 
         let creator = generate_test_user();
 

@@ -17,30 +17,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     info!("Starting MoSQL");
 
-    let mut exporter = mosql::Exporter::new("mosql").await;
     let args = Cli::from_args();
-    args.command.run(&mut exporter).await?;
+    args.command.run().await?;
     Ok(())
-}
-
-#[warn(dead_code)]
-async fn another_main() {
-    let mut exporter = mosql::Exporter::new("mosql").await;
-
-    exporter.exclude_collections(vec![
-        "collection1".to_string(),
-        "collection2".to_string(),
-        "collection3".to_string(),
-    ]);
-    exporter.include_collections(vec!["icollection1".to_string()]);
-    exporter.set_creator("default@mosql.io", "Export Admin");
-
-    match exporter.generate_default_schema_mapping().await {
-        Ok(_) => print!("success"),
-        Err(err) => print!("Error {}", err),
-    }
-
-    exporter.save();
 }
 
 #[derive(StructOpt)]
@@ -89,11 +68,12 @@ enum ExportCommand {
 }
 
 impl Command {
-    async fn run(&self, exporter: &mut mosql::Exporter) -> Result<(), Box<dyn std::error::Error>> {
+    async fn run(&self) -> Result<(), Box<dyn std::error::Error>> {
         match self {
             Command::Export(subcommand) => match subcommand {
-                ExportCommand::Init { export_name } => {
-                    export_init(export_name.to_owned(), exporter).await?
+                ExportCommand::Init { export_name } => export_init(export_name).await?,
+                ExportCommand::GenerateDefaultMapping { export_name } => {
+                    export_generate_default_mapping(export_name).await?
                 }
                 _ => println!("Command not supported"),
             },
@@ -197,14 +177,13 @@ impl ExportArgInput {
     }
 }
 
-async fn export_init(
-    namespace: String,
-    exporter: &mut Exporter,
-) -> Result<(), Box<dyn std::error::Error>> {
+async fn export_init(namespace: &str) -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "Initializing export '{}'. Please provide a few more details about the export:",
         namespace
     );
+
+    let mut exporter = mosql::Exporter::new(namespace).await;
 
     let mut export_info_list = vec![
         ExportArgInput {
@@ -333,8 +312,24 @@ async fn export_init(
             MoSQLError::Mongo(error) => println!("{}", error),
             MoSQLError::Postgres(error) => println!("{}", error),
             MoSQLError::Persistence(error) => println!("{}", error),
+            MoSQLError::SchemaPath(error) => println!("{}", error),
         },
-        Ok(_) => println!("export saved"),
+        Ok(export) => {
+            let export_json = serde_json::to_string_pretty(&export).unwrap();
+            println!("Saved Export JSON: {}", export_json);
+        }
+    }
+
+    Ok(())
+}
+
+async fn export_generate_default_mapping(
+    namespace: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut exporter = mosql::Exporter::new(namespace).await;
+    match exporter.generate_default_schema_mapping(Some("./")).await {
+        Ok(_) => print!("success"),
+        Err(err) => print!("Error {}", err),
     }
 
     Ok(())

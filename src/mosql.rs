@@ -5,14 +5,19 @@ use case_converter::*;
 use chrono::Utc;
 use derive_more::Display;
 use log::{debug, info};
+use std::env;
+use std::fs;
 use std::fs::File;
+use std::io;
 use std::io::prelude::*;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Display)]
 pub enum MoSQLError {
     Mongo(String),
     Postgres(String),
     Persistence(String),
+    SchemaPath(String),
 }
 
 pub struct Exporter {
@@ -31,7 +36,7 @@ impl Exporter {
 
         info!("mosql core sqlite database setup complete");
 
-        let export_builder = core::ExportBuilder::init_new_export(namespace, "mongo_to_postgres");
+        let export_builder = core::ExportBuilder::init_export(namespace, "mongo_to_postgres");
         Self {
             namespace: namespace.to_string(),
             sqlite_client,
@@ -106,10 +111,26 @@ impl Exporter {
         self.export_builder.set_updator_info(user);
     }
 
-    pub async fn generate_default_schema_mapping(&mut self) -> Result<(), MoSQLError> {
+    pub async fn generate_default_schema_mapping(
+        &mut self,
+        schema_root_path: Option<&str>,
+    ) -> Result<(), MoSQLError> {
         if self.mongo_client.is_none() {
             self.connect_source_db().await?;
         }
+
+        let schema_dir_path_result = self
+            .create_schema_directory(schema_root_path, self.namespace.as_str())
+            .await;
+
+        if let Err(err) = schema_dir_path_result {
+            return Err(MoSQLError::SchemaPath(format!(
+                "Schema path error: {}",
+                err
+            )));
+        }
+
+        let schema_dir_path = schema_dir_path_result.ok().unwrap();
 
         match self.mongo_client.as_ref().unwrap().collections().await {
             Err(err) => Err(MoSQLError::Mongo(err.to_string())),
@@ -122,26 +143,51 @@ impl Exporter {
                     );
                     let schema = self.generate_schema_mapping(collection).await;
                     schemas.push(schema.expect("error with schema"));
+
+                    let json_data =
+                        serde_json::to_string_pretty(&self.export_builder.get_export()).unwrap();
+
+                    // Write the JSON data to a file
+                    let file_name =
+                        schema_dir_path.with_file_name(format!("{}.json", collection.clone()));
+                    let mut file = File::create(file_name.clone()).unwrap_or_else(|_| {
+                        panic!(
+                            "Failed to create a schema json file for {}",
+                            collection.clone()
+                        )
+                    });
+
+                    file.write_all(json_data.as_bytes()).unwrap_or_else(|_| {
+                        panic!(
+                            "Failed to write JSON data to a schema json file for {}",
+                            collection.clone()
+                        )
+                    });
                 }
 
-                match self
+                //set the schemas on export
+                if let Err(err) = self
                     .export_builder
                     .set_schemas(schemas)
                     .save(&self.sqlite_client)
                     .await
                 {
-                    Err(err) => panic!("Error saving: {}", err),
-                    Ok(_) => info!("Export saved"),
+                    return Err(MoSQLError::Persistence(format!(
+                        "Error setting schemas on export: {}",
+                        err
+                    )));
                 }
 
+                //Does JSON data export for the export and schemas
                 let json_data =
-                    serde_json::to_string_pretty(&self.export_builder.get_export()).unwrap();
+                    serde_json::to_string_pretty(&self.export_builder.get_export_json()).unwrap();
 
-                // Write the JSON data to a file
-                let file_name = format!("{}_schema.json", "namespace");
-                let mut file = File::create(file_name).expect("Failed to create file");
+                let file_name = schema_dir_path
+                    .with_file_name(format!("{}_export.json", self.namespace.clone()));
+                let mut file = File::create(file_name).expect("Failed to create export json file");
+
                 file.write_all(json_data.as_bytes())
-                    .expect("Failed to write to file");
+                    .expect("Failed to write to export json file");
 
                 Ok(())
             }
@@ -221,6 +267,36 @@ impl Exporter {
             }
             Err(err) => Err(MoSQLError::Mongo(err.to_string())),
         }
+    }
+
+    async fn create_schema_directory(
+        &self,
+        root_file_path: Option<&str>,
+        folder_name: &str,
+    ) -> io::Result<PathBuf> {
+        let base_path = if let Some(path) = root_file_path {
+            // If root_file_path is provided, check if it's a valid directory
+            let path = Path::new(path);
+            if path.exists() && path.is_dir() {
+                path.to_path_buf()
+            } else {
+                return Err(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    "Invalid directory path",
+                ));
+            }
+        } else {
+            // If root_file_path is None, use the current directory
+            env::current_dir()?
+        };
+
+        // Create the new folder path
+        let new_folder_path = base_path.join(folder_name);
+
+        // Create the directory
+        fs::create_dir(&new_folder_path)?;
+
+        Ok(new_folder_path)
     }
 }
 
