@@ -698,7 +698,6 @@ name = "entity"
 version = "0.1.0"
 dependencies = [
  "sea-orm",
- "serde",
 ]
 
 [[package]]
@@ -1395,15 +1394,12 @@ dependencies = [
  "case_converter",
  "chrono",
  "derive_more",
- "dotenvy",
  "entity",
- "lazy_static",
  "log",
  "migration",
  "mongodb",
  "rand",
  "sea-orm",
- "sea-orm-migration",
  "serde",
  "serde_json",
  "simple_logger",

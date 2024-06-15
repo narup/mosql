@@ -1,0 +1,29 @@
+.DS_Store
+doc/
+STATUS.md
+.zed/
+
+
+# Added by cargo
+
+/target
+
+
+# Added by cargo
+#
+# already existing elements were commented out
+
+#/target
+
+
+# Added by cargo
+#
+# already existing elements were commented out
+
+#/target
+mosql_db.db
+mosql_test_db.db
+mosqldb_data.db
+tasks.mdw
+w
+
