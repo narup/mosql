@@ -127,7 +127,7 @@ pub struct User {
 }
 
 pub struct ExportBuilder {
-    entity: Option<export::ActiveModel>,
+    entity: Option<export::Model>,
     export: Option<Export>,
 }
 
@@ -195,23 +195,18 @@ impl ExportBuilder {
         self
     }
 
-    pub fn export_entity(&self) -> Option<::entity::export::Model> {
-        if self.entity.is_none() {
-            debug!("Entity not populated");
-            return None;
+    pub async fn load_export(
+        &mut self,
+        db_client: &SQLiteClient,
+        namespace: &str,
+    ) -> Result<bool, Box<dyn Error>> {
+        let (yes, saved_export) = check_export_exists(db_client, namespace).await;
+        if yes {
+            self.entity = saved_export;
+            Ok(true)
+        } else {
+            Err(format!("export not found for namespace {}", namespace).into())
         }
-
-        match self.entity.clone().unwrap().try_into_model() {
-            Ok(model) => Some(model),
-            Err(err) => {
-                println!("ERROR: {}", err);
-                None
-            }
-        }
-    }
-
-    pub fn mut_export(&mut self) -> &Export {
-        self.export.as_mut().unwrap()
     }
 
     pub fn get_export(&self) -> Export {
@@ -340,7 +335,7 @@ impl ExportBuilder {
         }
 
         entity.id = Set(export_id);
-        self.entity = Some(entity.clone());
+        self.entity = entity.try_into_model().ok();
 
         Ok(true)
     }
@@ -531,6 +526,61 @@ pub async fn user_by_email(db_client: &SQLiteClient, email: &str) -> i32 {
     }
 }
 
+pub async fn connection_by_id(
+    db_clinet: &SQLiteClient,
+    conn_id: i32,
+) -> Result<Option<Connection>, sea_orm::DbErr> {
+    let conn_model = connection::Entity::find()
+        .from_raw_sql(Statement::from_sql_and_values(
+            DbBackend::Sqlite,
+            r#"SELECT * from connection where id = $1"#,
+            [conn_id.into()],
+        ))
+        .one(&db_clinet.conn)
+        .await?;
+
+    match conn_model {
+        Some(model) => {
+            let conn = Connection {
+                id: Some(model.id),
+                name: model.name.clone(),
+                connection_string: model.connection_string.clone(),
+            };
+            Ok(Some(conn))
+        }
+        None => Ok(None),
+    }
+}
+
+pub async fn schemas_by_namespace(
+    db_clinet: &SQLiteClient,
+    namespace: &str,
+) -> Result<Vec<Schema>, sea_orm::DbErr> {
+    let schema_results: Vec<::entity::schema::Model> = ::entity::schema::Entity::find()
+        .from_raw_sql(Statement::from_sql_and_values(
+            DbBackend::Sqlite,
+            r#"SELECT * from schema where namespace = $1"#,
+            [namespace.into()],
+        ))
+        .all(&db_clinet.conn)
+        .await?;
+
+    let mut schemas = Vec::new();
+    for s in schema_results.iter() {
+        let schema = Schema {
+            id: Some(s.id),
+            namespace: s.namespace.clone(),
+            collection: s.collection.clone(),
+            sql_table: s.sql_table.clone(),
+            version: s.version.clone(),
+            indexes: Vec::new(),
+            mappings: Vec::new(),
+        };
+        schemas.push(schema);
+    }
+    Ok(schemas)
+}
+
 pub async fn delete_export(
     db_client: &SQLiteClient,
     namespace: &str,
@@ -650,22 +700,28 @@ mod tests {
         let saved = export_builder.save(&sqlite).await.expect("Save failed");
         assert!(saved);
 
-        let saved_export = export_builder
-            .export_entity()
-            .expect("saved export should be ok");
+        let saved_export = export_builder.get_export();
 
-        assert!(saved_export.id > 0);
+        assert!(saved_export.id.unwrap() > 0);
         assert_eq!(saved_export.namespace, namespace.clone());
-        assert!(saved_export.creator_id > 0);
-        assert!(saved_export.source_connection_id > 0);
-        assert!(saved_export.destination_connection_id > 0);
+        assert!(saved_export.creator.clone().unwrap().id.unwrap() > 0);
+        assert!(saved_export.source_connection.clone().unwrap().id.unwrap() > 0);
+        assert!(
+            saved_export
+                .destination_connection
+                .clone()
+                .unwrap()
+                .id
+                .unwrap()
+                > 0
+        );
 
         println!(
             "IDs - export id: {}, creator id: {}, source conn id: {}, dest conn id: {}",
-            saved_export.id,
-            saved_export.creator_id,
-            saved_export.source_connection_id,
-            saved_export.destination_connection_id
+            saved_export.id.unwrap(),
+            saved_export.creator.unwrap().id.unwrap(),
+            saved_export.source_connection.unwrap().id.unwrap(),
+            saved_export.destination_connection.unwrap().id.unwrap()
         );
 
         if let Err(err) = core::check_and_delete_existing_export(&sqlite, namespace.as_str()).await

@@ -115,6 +115,14 @@ impl Exporter {
         &mut self,
         schema_root_path: Option<&str>,
     ) -> Result<(), MoSQLError> {
+        if let Err(err) = self
+            .export_builder
+            .load_export(&self.sqlite_client, self.namespace.as_str())
+            .await
+        {
+            return Err(MoSQLError::Persistence(err.to_string()));
+        }
+
         if self.mongo_client.is_none() {
             self.connect_source_db().await?;
         }

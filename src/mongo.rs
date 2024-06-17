@@ -26,7 +26,7 @@ impl DocumentValue {
             _ => "text",
         };
 
-        return sql_val_type.to_string();
+        sql_val_type.to_string()
     }
 
     pub fn mongo_type(&self) -> String {
@@ -53,7 +53,7 @@ impl DocumentValue {
             ElementType::MaxKey => "max_key",
             ElementType::MinKey => "min_key",
         };
-        return mtype.to_string();
+        mtype.to_string()
     }
 }
 
@@ -63,8 +63,7 @@ pub struct DBClient {
 }
 
 pub async fn setup_client(uri: &str) -> DBClient {
-    let conn = DBClient::new(uri).await;
-    return conn;
+    DBClient::new(uri).await
 }
 
 impl DBClient {
@@ -90,24 +89,24 @@ impl DBClient {
         {
             Ok(_) => {
                 info!("Database pinged. Connected!");
-                return true;
+                true
             }
             Err(e) => {
                 info!("Error connecting to database:{}", e);
-                return false;
+                false
             }
         }
     }
 
     pub async fn collections(&self) -> Result<Vec<String>, Box<dyn Error>> {
         match self.db.list_collection_names(None).await {
-            Ok(list) => return Ok(list),
+            Ok(list) => Ok(list),
             Err(err) => Err(format!("error listing collection names: {}", err).into()),
         }
     }
 
     pub fn collection<T>(&self, name: &str) -> Collection<T> {
-        return self.db.collection(name);
+        self.db.collection(name)
     }
 
     pub async fn generate_collection_flat_map(
@@ -125,7 +124,7 @@ impl DBClient {
             create_flat_map(&mut final_map, collection_name, &doc);
         }
 
-        return Ok(final_map);
+        Ok(final_map)
     }
 }
 
@@ -133,8 +132,7 @@ impl DBClient {
 fn create_flat_map(flat_map: &mut HashMap<String, DocumentValue>, prefix: &str, doc: &Document) {
     for key in doc.keys() {
         if let Some(val) = doc.get(key) {
-            let new_key = format!("{}.{}", prefix, key.to_string());
-
+            let new_key = format!("{}.{}", prefix, key.as_str());
             match val.element_type() {
                 ElementType::EmbeddedDocument => {
                     debug!("embedded document found, create nested keys");
@@ -237,7 +235,7 @@ mod tests {
         // Convert the timestamp to a BSON DateTime
         let now = DateTime::now();
 
-        let doc = TestDocument {
+        TestDocument {
             name: "John Doe".to_string(),
             email: "john.doe@mosql.io".to_string(),
             city: "San Francisco".to_string(),
@@ -263,12 +261,10 @@ mod tests {
                     residence: false,
                 },
             },
-        };
-
-        return doc;
+        }
     }
 
     async fn setup() -> mongo::DBClient {
-        return mongo::DBClient::new("mongodb://localhost:27017/mosql").await;
+        mongo::DBClient::new("mongodb://localhost:27017/mosql").await
     }
 }

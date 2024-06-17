@@ -183,7 +183,7 @@ async fn export_init(namespace: &str) -> Result<(), Box<dyn std::error::Error>> 
         namespace
     );
 
-    let mut exporter = mosql::Exporter::new(namespace).await;
+    let mut exporter = Exporter::new(namespace).await;
 
     let mut export_info_list = vec![
         ExportArgInput {
@@ -326,7 +326,7 @@ async fn export_init(namespace: &str) -> Result<(), Box<dyn std::error::Error>> 
 async fn export_generate_default_mapping(
     namespace: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut exporter = mosql::Exporter::new(namespace).await;
+    let mut exporter = Exporter::new(namespace).await;
     match exporter.generate_default_schema_mapping(Some("./")).await {
         Ok(_) => print!("success"),
         Err(err) => print!("Error {}", err),
