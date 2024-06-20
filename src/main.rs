@@ -184,7 +184,6 @@ async fn export_init(namespace: &str) -> Result<(), Box<dyn std::error::Error>> 
     );
 
     let mut exporter = Exporter::new(namespace).await;
-
     let mut export_info_list = vec![
         ExportArgInput {
             prompt_text: "Source database name".to_string(),
@@ -235,6 +234,22 @@ async fn export_init(namespace: &str) -> Result<(), Box<dyn std::error::Error>> 
             required: false,
         },
     ];
+
+    if exporter.is_namespace_used().await {
+        println!(
+            "Namespace {} is already used. Do you want to override? (y/n). Presss return/enter to override: ",
+            namespace
+        );
+        io::stdout().flush().unwrap();
+        let mut input = String::new();
+        io::stdin()
+            .read_line(&mut input)
+            .expect("Error reading the input");
+        if input.trim() != "" && input.trim() == "y" && input.trim() == "Y" {
+            println!("Try again with different namespace");
+            return Ok(());
+        }
+    }
 
     let mut export_data = ExportData::default();
     loop {

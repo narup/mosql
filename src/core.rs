@@ -369,8 +369,13 @@ async fn save_export_user(
     export: &mut Export,
 ) -> Result<i32, Box<dyn Error>> {
     let user = export.creator.as_ref().unwrap();
+
     info!("User email check {}", user.email);
-    let user_id = user_by_email(db_client, &user.email.clone()).await;
+    let user_id = match fetch_user_by_email(db_client, &user.email.clone()).await? {
+        Some(user) => user.id.unwrap(),
+        None => 0,
+    };
+
     info!("User id {}", user_id);
     if user_id > 0 {
         info!("found existing user");
@@ -471,6 +476,11 @@ pub async fn save_new_user(
     u.insert(&db_client.conn).await
 }
 
+pub async fn is_namespace_used(db_client: &SQLiteClient, namespace: &str) -> bool {
+    let (yes, _model) = check_export_exists(db_client, namespace).await;
+    yes
+}
+
 pub async fn check_export_exists(
     db_client: &SQLiteClient,
     namespace: &str,
@@ -500,33 +510,34 @@ pub async fn check_export_exists(
     }
 }
 
-pub async fn user_by_email(db_client: &SQLiteClient, email: &str) -> i32 {
-    match user::Entity::find()
+pub async fn fetch_user_by_email(
+    db_client: &SQLiteClient,
+    email: &str,
+) -> Result<Option<User>, sea_orm::DbErr> {
+    let user_model = user::Entity::find()
         .from_raw_sql(Statement::from_sql_and_values(
             DbBackend::Sqlite,
             r#"SELECT * FROM user WHERE email = $1"#,
             [email.into()],
         ))
         .one(&db_client.conn)
-        .await
-    {
-        Ok(model) => {
-            if let Some(user) = model {
-                info!("Found user model - {:?}", user);
-                user.id
-            } else {
-                info!("No saved user found for email {}", email);
-                -1
-            }
+        .await?;
+
+    match user_model {
+        Some(model) => {
+            let user = User {
+                id: Some(model.id),
+                full_name: model.full_name.clone(),
+                email: model.email.clone(),
+                created_at: model.created_at.clone(),
+            };
+            Ok(Some(user))
         }
-        Err(err) => {
-            info!("Error checking user count - {}", err);
-            -1
-        }
+        None => Ok(None),
     }
 }
 
-pub async fn connection_by_id(
+pub async fn fetch_connection_by_id(
     db_clinet: &SQLiteClient,
     conn_id: i32,
 ) -> Result<Option<Connection>, sea_orm::DbErr> {
@@ -552,7 +563,7 @@ pub async fn connection_by_id(
     }
 }
 
-pub async fn schemas_by_namespace(
+pub async fn fetch_schemas_by_namespace(
     db_clinet: &SQLiteClient,
     namespace: &str,
 ) -> Result<Vec<Schema>, sea_orm::DbErr> {
@@ -574,11 +585,41 @@ pub async fn schemas_by_namespace(
             sql_table: s.sql_table.clone(),
             version: s.version.clone(),
             indexes: Vec::new(),
-            mappings: Vec::new(),
+            mappings: fetch_mappings_by_schema_id(db_clinet, s.id).await?,
         };
         schemas.push(schema);
     }
+
     Ok(schemas)
+}
+
+pub async fn fetch_mappings_by_schema_id(
+    db_clinet: &SQLiteClient,
+    schema_id: i32,
+) -> Result<Vec<Mapping>, sea_orm::DbErr> {
+    let mapping_results: Vec<::entity::mapping::Model> = ::entity::mapping::Entity::find()
+        .from_raw_sql(Statement::from_sql_and_values(
+            DbBackend::Sqlite,
+            r#"SELECT * from mapping where schema_id = $1"#,
+            [schema_id.into()],
+        ))
+        .all(&db_clinet.conn)
+        .await?;
+
+    let mut mappings = Vec::new();
+    for m in mapping_results.iter() {
+        let mapping = Mapping {
+            id: Some(m.id),
+            source_field_name: m.source_field_name.clone(),
+            source_field_type: m.source_field_type.clone(),
+            destination_field_name: m.destination_field_name.clone(),
+            destination_field_type: m.destination_field_type.clone(),
+            version: m.version.clone(),
+        };
+
+        mappings.push(mapping);
+    }
+    Ok(mappings)
 }
 
 pub async fn delete_export(

@@ -46,6 +46,10 @@ impl Exporter {
         }
     }
 
+    pub async fn is_namespace_used(&self) -> bool {
+        core::is_namespace_used(&self.sqlite_client, self.namespace.as_str()).await
+    }
+
     pub async fn connect_source_db(&mut self) -> Result<(), MoSQLError> {
         //source database - mongo
         if let Some(connection) = &self.export_builder.get_export().source_connection {
