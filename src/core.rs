@@ -203,6 +203,42 @@ impl ExportBuilder {
         let (yes, saved_export) = check_export_exists(db_client, namespace).await;
         if yes {
             self.entity = saved_export;
+
+            let se = self.entity.as_ref().unwrap();
+            let include_collections: Vec<String> = se
+                .include_filters
+                .as_ref()
+                .unwrap()
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .collect();
+
+            let exclude_collections: Vec<String> = se
+                .exclude_filters
+                .as_ref()
+                .unwrap()
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .collect();
+
+            let export = Export {
+                id: Some(se.id),
+                namespace: se.namespace.clone(),
+                export_type: se.r#type.clone(),
+                exclude_filters: exclude_collections,
+                include_filters: include_collections,
+                schemas: fetch_schemas_by_namespace(db_client, namespace).await?,
+                source_connection: fetch_connection_by_id(db_client, se.source_connection_id)
+                    .await?,
+                destination_connection: fetch_connection_by_id(
+                    db_client,
+                    se.destination_connection_id,
+                )
+                .await?,
+                creator: fetch_user_by_id(db_client, se.creator_id).await?,
+                updator: fetch_user_by_id(db_client, se.updator_id).await?,
+            };
+            self.export = Some(export);
             Ok(true)
         } else {
             Err(format!("export not found for namespace {}", namespace).into())
@@ -519,6 +555,33 @@ pub async fn fetch_user_by_email(
             DbBackend::Sqlite,
             r#"SELECT * FROM user WHERE email = $1"#,
             [email.into()],
+        ))
+        .one(&db_client.conn)
+        .await?;
+
+    match user_model {
+        Some(model) => {
+            let user = User {
+                id: Some(model.id),
+                full_name: model.full_name.clone(),
+                email: model.email.clone(),
+                created_at: model.created_at.clone(),
+            };
+            Ok(Some(user))
+        }
+        None => Ok(None),
+    }
+}
+
+pub async fn fetch_user_by_id(
+    db_client: &SQLiteClient,
+    user_id: i32,
+) -> Result<Option<User>, sea_orm::DbErr> {
+    let user_model = user::Entity::find()
+        .from_raw_sql(Statement::from_sql_and_values(
+            DbBackend::Sqlite,
+            r#"SELECT * FROM user WHERE id = $1"#,
+            [user_id.into()],
         ))
         .one(&db_client.conn)
         .await?;
