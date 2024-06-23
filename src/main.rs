@@ -10,7 +10,7 @@ use structopt::StructOpt;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     simple_logger::SimpleLogger::new()
-        .with_level(log::LevelFilter::Info)
+        .with_level(log::LevelFilter::Warn)
         .env()
         .init()
         .unwrap();
@@ -71,7 +71,7 @@ impl Command {
     async fn run(&self) -> Result<(), Box<dyn std::error::Error>> {
         match self {
             Command::Export(subcommand) => match subcommand {
-                ExportCommand::Init { export_name } => export_init(export_name).await?,
+                ExportCommand::Init { export_name } => init_export(export_name).await?,
                 ExportCommand::GenerateDefaultMapping { export_name } => {
                     export_generate_default_mapping(export_name).await?
                 }
@@ -114,9 +114,8 @@ struct ExportArgInput {
 }
 
 impl ExportArgInput {
-    pub fn validate(&self, input: String) -> bool {
-        if self.required && input.len() <= 1 {
-            println!("Value required. Try again!");
+    pub fn validate(&self) -> bool {
+        if self.required && self.user_input.len() <= 1 {
             return false;
         }
         true
@@ -177,12 +176,7 @@ impl ExportArgInput {
     }
 }
 
-async fn export_init(namespace: &str) -> Result<(), Box<dyn std::error::Error>> {
-    println!(
-        "Initializing export '{}'. Please provide a few more details about the export:",
-        namespace
-    );
-
+async fn init_export(namespace: &str) -> Result<(), Box<dyn std::error::Error>> {
     let mut exporter = Exporter::new(namespace).await;
     let mut export_info_list = vec![
         ExportArgInput {
@@ -236,32 +230,36 @@ async fn export_init(namespace: &str) -> Result<(), Box<dyn std::error::Error>> 
     ];
 
     if exporter.is_namespace_used().await {
-        println!(
-            "Namespace {} is already used. Do you want to override? (y/n). Presss return/enter to override: ",
+        print!(
+            "Namespace `{}` is already used. Do you want to override? (y/n). Presss return/enter to override: ",
             namespace
         );
+
         io::stdout().flush().unwrap();
         let mut input = String::new();
         io::stdin()
             .read_line(&mut input)
             .expect("Error reading the input");
-        if input.trim() != "" && input.trim() == "y" && input.trim() == "Y" {
+        if !input.trim().is_empty() && (input.trim() == "n" || input.trim() == "N") {
             println!("Try again with different namespace");
             return Ok(());
         }
     }
 
+    println!(
+        "Initializing export `{}`. Please provide a few more details about the export:",
+        namespace
+    );
+
     let mut export_data = ExportData::default();
     loop {
         for ei in export_info_list.iter_mut() {
             loop {
-                let mut update_value = false;
                 if ei.user_input.is_empty() {
                     print!("> {}:", ei.prompt_text.to_owned());
                 } else {
-                    update_value = true;
                     println!(
-                        "Update current value: {} for {}. Press return to keep it same",
+                        "Update current value `{}` for {}. Press return to keep it same",
                         ei.user_input.to_owned(),
                         ei.input_field()
                     );
@@ -273,19 +271,18 @@ async fn export_init(namespace: &str) -> Result<(), Box<dyn std::error::Error>> 
                 io::stdin()
                     .read_line(&mut input)
                     .expect("Error reading the input");
-
-                if update_value && input.len() <= 1 {
-                    //user didn't change existing value
-                    input = ei.user_input.clone();
+                //user changed existing value
+                if !input.trim().is_empty() {
+                    ei.user_input = input.trim().to_string();
                 }
-                if ei.validate(input.clone()) {
-                    ei.user_input = input.clone();
+                if ei.validate() {
                     ei.set_export_data_value(&mut export_data);
-                    println!(">> {}", input);
+                    println!(">> {}", ei.user_input);
 
                     //move to next input
                     break;
                 } else {
+                    println!("Value required. Try again!");
                     continue;
                 }
             }
@@ -294,11 +291,12 @@ async fn export_init(namespace: &str) -> Result<(), Box<dyn std::error::Error>> 
         print!("> Save(Y/N) - Press Y to save and N to change the export details:");
 
         let mut input = String::new();
+        io::stdout().flush().unwrap();
         io::stdin()
             .read_line(&mut input)
             .expect("Error reading the input");
 
-        if input == "Y" || input == "y" {
+        if input.trim_end() == "Y" || input.trim_end() == "y" {
             break;
         }
     }
