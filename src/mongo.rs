@@ -70,7 +70,7 @@ impl DBClient {
     pub async fn new(uri: &str) -> Self {
         let conn = match Client::with_uri_str(uri).await {
             Ok(conn) => conn,
-            Err(e) => panic!("Error connecting to mongo: {}", e),
+            Err(e) => panic!("Error connecting to mongo: {}, uri: {}", e, uri),
         };
 
         let db = conn.default_database().expect(

@@ -156,25 +156,27 @@ impl Exporter {
                     let schema = self.generate_schema_mapping(collection).await;
                     schemas.push(schema.expect("error with schema"));
 
-                    let json_data =
-                        serde_json::to_string_pretty(&self.export_builder.get_export()).unwrap();
+                    let schemas_json_data = serde_json::to_string_pretty(&schemas).unwrap();
 
                     // Write the JSON data to a file
-                    let file_name =
-                        schema_dir_path.with_file_name(format!("{}.json", collection.clone()));
-                    let mut file = File::create(file_name.clone()).unwrap_or_else(|_| {
+                    let schemas_file_path =
+                        schema_dir_path.join(format!("{}.json", collection.clone()));
+                    info!("Schemas file path {}", schemas_file_path.to_str().unwrap());
+
+                    let mut file = File::create(schemas_file_path).unwrap_or_else(|_| {
                         panic!(
                             "Failed to create a schema json file for {}",
                             collection.clone()
                         )
                     });
 
-                    file.write_all(json_data.as_bytes()).unwrap_or_else(|_| {
-                        panic!(
-                            "Failed to write JSON data to a schema json file for {}",
-                            collection.clone()
-                        )
-                    });
+                    file.write_all(schemas_json_data.as_bytes())
+                        .unwrap_or_else(|_| {
+                            panic!(
+                                "Failed to write JSON data to a schema json file for {}",
+                                collection.clone()
+                            )
+                        });
                 }
 
                 //set the schemas on export
@@ -194,9 +196,10 @@ impl Exporter {
                 let json_data =
                     serde_json::to_string_pretty(&self.export_builder.get_export_json()).unwrap();
 
-                let file_name = schema_dir_path
-                    .with_file_name(format!("{}_export.json", self.namespace.clone()));
-                let mut file = File::create(file_name).expect("Failed to create export json file");
+                let export_file_path =
+                    schema_dir_path.join(format!("{}_export.json", self.namespace.clone()));
+                let mut file =
+                    File::create(export_file_path).expect("Failed to create export json file");
 
                 file.write_all(json_data.as_bytes())
                     .expect("Failed to write to export json file");
@@ -308,7 +311,7 @@ impl Exporter {
         // Create the directory
         fs::create_dir(&new_folder_path)?;
 
-        Ok(new_folder_path)
+        Ok(new_folder_path.to_path_buf())
     }
 }
 

@@ -10,7 +10,7 @@ use structopt::StructOpt;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     simple_logger::SimpleLogger::new()
-        .with_level(log::LevelFilter::Warn)
+        .with_level(log::LevelFilter::Info)
         .env()
         .init()
         .unwrap();
@@ -342,7 +342,7 @@ async fn export_generate_default_mapping(
     let mut exporter = Exporter::new(namespace).await;
     match exporter.generate_default_schema_mapping(Some("./")).await {
         Ok(_) => print!("success"),
-        Err(err) => print!("Error {}", err),
+        Err(err) => print!("Error: {}", err),
     }
 
     Ok(())

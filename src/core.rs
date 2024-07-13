@@ -76,6 +76,7 @@ pub struct ExportJSON {
     pub export_type: String,
     pub exclude_filters: Vec<String>,
     pub include_filters: Vec<String>,
+    pub schemas: Vec<String>,
     pub source_connection: Option<Connection>,
     pub destination_connection: Option<Connection>,
     pub creator: Option<User>,
@@ -205,6 +206,7 @@ impl ExportBuilder {
             self.entity = saved_export;
 
             let se = self.entity.as_ref().unwrap();
+
             let include_collections: Vec<String> = se
                 .include_filters
                 .as_ref()
@@ -241,7 +243,7 @@ impl ExportBuilder {
             self.export = Some(export);
             Ok(true)
         } else {
-            Err(format!("export not found for namespace {}", namespace).into())
+            Err(format!("export not found for namespace `{}`", namespace).into())
         }
     }
 
@@ -256,6 +258,11 @@ impl ExportBuilder {
             export_type: export.export_type.clone(),
             exclude_filters: export.exclude_filters.clone(),
             include_filters: export.include_filters.clone(),
+            schemas: export
+                .schemas
+                .iter()
+                .map(|s| format!("{}.json", s.collection.clone()))
+                .collect(),
             source_connection: export.source_connection.clone(),
             destination_connection: export.destination_connection.clone(),
             creator: export.creator.clone(),
