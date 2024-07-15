@@ -75,6 +75,7 @@ impl Command {
                 ExportCommand::GenerateDefaultMapping { export_name } => {
                     export_generate_default_mapping(export_name).await?
                 }
+                ExportCommand::Start { export_name } => start_export(export_name).await?,
                 _ => println!("Command not supported"),
             },
             Command::Admin => println!("Web admin console running...."),
@@ -341,6 +342,16 @@ async fn export_generate_default_mapping(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut exporter = Exporter::new(namespace).await;
     match exporter.generate_default_schema_mapping(Some("./")).await {
+        Ok(_) => print!("success"),
+        Err(err) => print!("Error: {}", err),
+    }
+
+    Ok(())
+}
+
+async fn start_export(namespace: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let mut exporter = Exporter::new(namespace).await;
+    match exporter.start_full_export().await {
         Ok(_) => print!("success"),
         Err(err) => print!("Error: {}", err),
     }

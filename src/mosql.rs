@@ -228,8 +228,34 @@ impl Exporter {
         }
     }
 
-    pub async fn start_full_export(self) {
-        self.postgres_client.unwrap().ping().await;
+    pub async fn start_full_export(&mut self) -> Result<(), MoSQLError> {
+        //1. Load existing export
+        //2. Validate data required for starting export
+        //3. Connect postgres
+        //4. Create SCHEMA if it does not exists
+        //5. DROP SCHEMA if it exists
+        //6. Loop through collection and start async collection export
+        //7. Wait for the result
+        if let Err(err) = self
+            .export_builder
+            .load_export(&self.sqlite_client, self.namespace.as_str())
+            .await
+        {
+            return Err(MoSQLError::Persistence(err.to_string()));
+        }
+
+        Ok(())
+    }
+
+    async fn export_collection(&mut self, collection: &str) -> Result<(), MoSQLError> {
+        //1. Check if table SQL table exists for a collection
+        //2. If exists delete table
+        //3. If does not exists, create a table
+        //4. Fetch Mongo collection - use cursor
+        //5. Generate insert SQL
+        //6. Insert
+
+        Ok(())
     }
 
     async fn generate_schema_mapping(
