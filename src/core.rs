@@ -96,6 +96,20 @@ pub struct Schema {
     pub mappings: Vec<Mapping>,
 }
 
+impl Default for Schema {
+    fn default() -> Self {
+        Schema {
+            id: Some(0),
+            namespace: String::from(""),
+            collection: String::from(""),
+            sql_table: String::from(""),
+            version: String::from("0.0"),
+            indexes: Vec::new(),
+            mappings: Vec::new(),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Mapping {
     #[serde(skip_serializing, skip_deserializing)]

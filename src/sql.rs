@@ -52,13 +52,13 @@ impl PostgresClient {
 pub fn table_exists_sql(schema: &core::Schema) -> String {
     format!(
         r#"SELECT table_name FROM information_schema.tables
-          WHERE table_schema = '{}' AND table_name = '{}'"#,
+        WHERE table_schema = '{}' AND table_name = '{}'"#,
         schema.namespace, schema.sql_table
     )
 }
 
 pub fn drop_table_if_exists_sql(schema: &core::Schema) -> String {
-    format!("DROPT TABLE IF EXISTS {}", full_table_name(schema))
+    format!("DROP TABLE IF EXISTS {}", full_table_name(schema))
 }
 
 //SQL for truncating table
@@ -83,4 +83,63 @@ pub fn create_table_if_not_exists(schema: &core::Schema) -> String {
 
 fn full_table_name(schema: &core::Schema) -> String {
     format!("{}.{}", schema.namespace, schema.sql_table)
+}
+
+#[cfg(test)]
+mod tests {
+
+    use crate::core;
+
+    use super::*;
+
+    #[test]
+    fn test_sql_generators() {
+        let mapping_1 = core::Mapping {
+            id: Some(0),
+            source_field_name: "fieldOne".to_string(),
+            source_field_type: "string".to_string(),
+            destination_field_name: "field_one".to_string(),
+            destination_field_type: "text".to_string(),
+            version: "1".to_string(),
+        };
+        let mapping_2 = core::Mapping {
+            id: Some(0),
+            source_field_name: "fieldTwo".to_string(),
+            source_field_type: "number".to_string(),
+            destination_field_name: "field_two".to_string(),
+            destination_field_type: "numeric".to_string(),
+            version: "1".to_string(),
+        };
+
+        let schema = core::Schema {
+            namespace: "test_ns".to_string(),
+            collection: "test_collection".to_string(),
+            sql_table: "sql_test_table".to_string(),
+            mappings: vec![mapping_1, mapping_2],
+            ..Default::default()
+        };
+
+        let mut test_cases = Vec::<(&str, &str)>::new();
+        test_cases.insert(0, ("truncate", "TRUNCATE TABLE test_ns.sql_test_table"));
+        test_cases.insert(1, ("drop", "DROP TABLE IF EXISTS test_ns.sql_test_table"));
+        test_cases.insert(2, ("table_exists", "SELECT table_name FROM information_schema.tables WHERE table_schema = 'test_ns' AND table_name = 'sql_test_table'"));
+        test_cases.insert(3, ("create_table", "CREATE TABLE IF NOT EXISTS test_ns.sql_test_table ( field_one text,field_two numeric )"));
+
+        test_cases.iter().for_each(|(test_case, expected_output)| {
+            let actual_output: String = match *test_case {
+                "truncate" => truncate_table_sql(&schema),
+                "drop" => drop_table_if_exists_sql(&schema),
+                "table_exists" => table_exists_sql(&schema),
+                "create_table" => create_table_if_not_exists(&schema),
+                _ => "n/a".to_string(),
+            };
+            let actual_output = actual_output
+                .split_whitespace()
+                .collect::<Vec<&str>>()
+                .join(" ");
+            println!("Actual SQL output: {}", actual_output);
+
+            assert_eq!(actual_output.as_str(), *expected_output, "should be equal");
+        });
+    }
 }
