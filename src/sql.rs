@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::error::Error;
 
 use crate::core;
@@ -46,6 +48,17 @@ impl PostgresClient {
             .rows_affected();
         Ok(rows_affected > 0)
     }
+
+    pub async fn create_table(&self, schema: &core::Schema) -> Result<bool, Box<dyn Error>> {
+        let create_sql = create_table_if_not_exists_sql(schema);
+
+        info!("Creating table {}", schema.sql_table);
+        debug!("{}", create_sql);
+        sqlx::query(create_sql.as_str()).execute(&self.conn).await?;
+
+        info!("table created successfully");
+        Ok(true)
+    }
 }
 
 //generate a SQL to check if a table exists in the database
@@ -66,19 +79,26 @@ pub fn truncate_table_sql(schema: &core::Schema) -> String {
     format!("TRUNCATE TABLE {}", full_table_name(schema))
 }
 
-pub fn create_table_if_not_exists(schema: &core::Schema) -> String {
+pub fn create_table_if_not_exists_sql(schema: &core::Schema) -> String {
     let column_definitions: String = schema
         .mappings
         .iter()
-        .map(|m| format!("{} {}", m.destination_field_name, m.destination_field_type))
+        .map(get_column_definition)
         .collect::<Vec<String>>()
         .join(",");
 
     format!(
-        r#"CREATE TABLE IF NOT EXISTS {} ( {} ) "#,
+        r#"CREATE TABLE IF NOT EXISTS {} ( 
+        id SERIAL PRIMARY KEY,
+        {} 
+        )"#,
         full_table_name(schema),
         column_definitions
     )
+}
+
+fn get_column_definition(m: &core::Mapping) -> String {
+    format!("{} {}", m.destination_field_name, m.destination_field_type)
 }
 
 fn full_table_name(schema: &core::Schema) -> String {
@@ -123,14 +143,14 @@ mod tests {
         test_cases.insert(0, ("truncate", "TRUNCATE TABLE test_ns.sql_test_table"));
         test_cases.insert(1, ("drop", "DROP TABLE IF EXISTS test_ns.sql_test_table"));
         test_cases.insert(2, ("table_exists", "SELECT table_name FROM information_schema.tables WHERE table_schema = 'test_ns' AND table_name = 'sql_test_table'"));
-        test_cases.insert(3, ("create_table", "CREATE TABLE IF NOT EXISTS test_ns.sql_test_table ( field_one text,field_two numeric )"));
+        test_cases.insert(3, ("create_table", "CREATE TABLE IF NOT EXISTS test_ns.sql_test_table ( id SERIAL PRIMARY KEY, field_one text,field_two numeric )"));
 
         test_cases.iter().for_each(|(test_case, expected_output)| {
             let actual_output: String = match *test_case {
                 "truncate" => truncate_table_sql(&schema),
                 "drop" => drop_table_if_exists_sql(&schema),
                 "table_exists" => table_exists_sql(&schema),
-                "create_table" => create_table_if_not_exists(&schema),
+                "create_table" => create_table_if_not_exists_sql(&schema),
                 _ => "n/a".to_string(),
             };
             let actual_output = actual_output

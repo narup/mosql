@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::core;
 use crate::mongo;
 use crate::sql;
