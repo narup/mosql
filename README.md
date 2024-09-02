@@ -58,7 +58,7 @@ above command will prompt you for more details about the export
 MoSQL comes with a web client to manage your export and other administrative tasks
 
 ## Running 
-NixOS requires this command first in the terminal because of some openssl craziness 
+NixOS requires this command first in the terminal because of some openssl craziness (https://github.com/sfackler/rust-openssl/issues/1663) 
 ``` nix-shell -p libiconv openssl pkg-config``` 
 
 ## References
