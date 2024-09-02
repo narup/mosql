@@ -57,6 +57,10 @@ above command will prompt you for more details about the export
 ``` $ mosql admin ```
 MoSQL comes with a web client to manage your export and other administrative tasks
 
+## Running 
+NixOS requires this command first in the terminal because of some openssl craziness 
+``` nix-shell -p libiconv openssl pkg-config``` 
+
 ## References
 
 - https://github.com/dtzxporter/hydra - An actor framework inspired by Erlang/Elixir
