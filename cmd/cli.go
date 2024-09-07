@@ -1,10 +1,14 @@
 package main
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
+	"github.com/narup/mosql/export"
 	cli "github.com/urfave/cli/v2"
 )
 
@@ -116,14 +120,12 @@ func exportStartCommand() *cli.Command {
 }
 
 func handleExportActions(ctx *cli.Context) error {
-	command := ctx.Command.FullName()
-	if ctx.NumFlags() == 0 || ctx.String("namespace") == "" {
-		return fmt.Errorf("invalid command, run 'mosql export %s help' for usage", command)
+	switch ctx.Command.FullName() {
+	case "init":
+		return handleExportInitAction(ctx)
+	default:
+		return errors.New("invalid command")
 	}
-	namespace := ctx.String("namespace")
-	fmt.Printf("Initalizing namespace: %s\n", namespace)
-
-	return nil
 }
 
 func onExportCommandUsageErrors(ctx *cli.Context, err error, _ bool) error {
@@ -151,11 +153,65 @@ func flag(name, alias, usage string) cli.Flag {
 	}
 }
 
-func initializeExportAction(ctx *cli.Context, namespace string) {
+func handleExportInitAction(ctx *cli.Context) error {
+	namespace := ctx.String("namespace")
+
+	fmt.Printf("Initalizing export for namespace '%s'. Provide a few more details:\n", namespace)
+
+	details := export.InitData{}
 	for {
-		var input string
-		fmt.Print("Enter something: ")
-		fmt.Scanln(&input)
-		fmt.Println("You entered:", input)
+		details = getExportDetails(details)
+		// Check if user confirmed to save
+		if strings.ToUpper(details.Save) == "Y" {
+			fmt.Println("Saving the export details...")
+			break // exit the loop if user confirmed to save
+		} else {
+			fmt.Println("You can change the export details again. Press 'return' to keep the same value. To quit press ctrl+c")
+		}
+	}
+
+	return nil
+}
+
+func getExportDetails(currentValues export.InitData) export.InitData {
+	details := export.InitData{
+		SourceDatabaseName:                  promptInput(currentValues.SourceDatabaseName, getPromptText("> Source database name", currentValues.SourceDatabaseName), true),
+		SourceDatabaseConnectionString:      promptInput(currentValues.SourceDatabaseConnectionString, getPromptText("> Source database connection string", currentValues.SourceDatabaseConnectionString), true),
+		DestinationDatabaseName:             promptInput(currentValues.DestinationDatabaseName, getPromptText("> Destination database name", currentValues.DestinationDatabaseName), true),
+		DestinationDatabaseConnectionString: promptInput(currentValues.DestinationDatabaseConnectionString, getPromptText("> Destination database connection string", currentValues.DestinationDatabaseConnectionString), true),
+		DestinationDatabaseType:             promptInput(currentValues.DestinationDatabaseType, getPromptText("> Destination database type (default is postgres)", currentValues.DestinationDatabaseType), true),
+		CollectionsToExclude:                promptInput(currentValues.CollectionsToExclude, getPromptText("> Collections to exclude (comma separated)", currentValues.CollectionsToExclude), false),
+		CollectionsToInclude:                promptInput(currentValues.CollectionsToInclude, getPromptText("> Collections to include (comma separated, no value means include all collections)", currentValues.CollectionsToInclude), false),
+		UserName:                            promptInput(currentValues.UserName, getPromptText("> User name (optional)", currentValues.UserName), false),
+		Email:                               promptInput(currentValues.Email, getPromptText("> Email (optional)", currentValues.Email), false),
+		Save:                                promptInput("", getPromptText("> Save (Y/N - Press Y to save and N to change the export details)", ""), true),
+	}
+
+	return details
+}
+
+func promptInput(currentValue, prompt string, required bool) string {
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		fmt.Print(prompt)
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		if input == "" && currentValue != "" {
+			// use the current value if input is empty
+			input = currentValue
+		}
+		if input == "" && required {
+			fmt.Println("Required input. Please provide a value.")
+		} else {
+			return input
+		}
+	}
+}
+
+func getPromptText(defaultPrompt, currentValue string) string {
+	if strings.TrimSpace(currentValue) == "" {
+		return fmt.Sprintf("%s: ", defaultPrompt)
+	} else {
+		return fmt.Sprintf("%s (current value `%s`): ", defaultPrompt, currentValue)
 	}
 }
