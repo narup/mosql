@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -123,6 +124,8 @@ func handleExportActions(ctx *cli.Context) error {
 	switch ctx.Command.FullName() {
 	case "init":
 		return handleExportInitAction(ctx)
+	case "generate-mappings":
+		return handleExportGenerateMappings(ctx)
 	default:
 		return errors.New("invalid command")
 	}
@@ -166,11 +169,31 @@ func handleExportInitAction(ctx *cli.Context) error {
 			fmt.Println("Saving the export details...")
 			break // exit the loop if user confirmed to save
 		} else {
-			fmt.Println("You can change the export details again. Press 'return' to keep the same value. To quit press ctrl+c")
+			fmt.Println("\n\nYou can change the export details again. Press 'return' to keep the same value. To quit press ctrl+c")
 		}
 	}
 
+	err := export.InitializeExport(context.Background(), details)
+	if err != nil {
+		return fmt.Errorf("failed to initialize export, error %s", err)
+	}
+
 	return nil
+}
+
+func handleExportGenerateMappings(ctx *cli.Context) error {
+	namespace := ctx.String("namespace")
+	filePath := ctx.String("dir-path")
+
+	_, err := os.Stat(filePath)
+	if os.IsNotExist(err) {
+		err = os.MkdirAll(filePath, 0755)
+		if err != nil {
+			return err
+		}
+	}
+
+	return export.GenerateSchemaMapping(context.Background(), namespace, filePath)
 }
 
 func getExportDetails(currentValues export.InitData) export.InitData {
@@ -179,7 +202,7 @@ func getExportDetails(currentValues export.InitData) export.InitData {
 		SourceDatabaseConnectionString:      promptInput(currentValues.SourceDatabaseConnectionString, getPromptText("> Source database connection string", currentValues.SourceDatabaseConnectionString), true),
 		DestinationDatabaseName:             promptInput(currentValues.DestinationDatabaseName, getPromptText("> Destination database name", currentValues.DestinationDatabaseName), true),
 		DestinationDatabaseConnectionString: promptInput(currentValues.DestinationDatabaseConnectionString, getPromptText("> Destination database connection string", currentValues.DestinationDatabaseConnectionString), true),
-		DestinationDatabaseType:             promptInput(currentValues.DestinationDatabaseType, getPromptText("> Destination database type (default is postgres)", currentValues.DestinationDatabaseType), true),
+		DestinationDatabaseType:             promptInput(currentValues.DestinationDatabaseType, getPromptText("> Destination database type (default is postgres)", currentValues.DestinationDatabaseType), false),
 		CollectionsToExclude:                promptInput(currentValues.CollectionsToExclude, getPromptText("> Collections to exclude (comma separated)", currentValues.CollectionsToExclude), false),
 		CollectionsToInclude:                promptInput(currentValues.CollectionsToInclude, getPromptText("> Collections to include (comma separated, no value means include all collections)", currentValues.CollectionsToInclude), false),
 		UserName:                            promptInput(currentValues.UserName, getPromptText("> User name (optional)", currentValues.UserName), false),

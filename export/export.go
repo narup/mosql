@@ -25,11 +25,7 @@ type InitData struct {
 	Save                                string
 }
 
-func InitializeExport(ctx context.Context, data InitData) error {
-	return nil
-}
-
-func Start() {
+func Setup() {
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found")
 	}
@@ -39,6 +35,10 @@ func Start() {
 		log.Printf("You must set your 'DATABASE_URL' environment variable. See\n\t https://www.mongodb.com/docs/drivers/go/current/usage-examples/#environment-variable")
 	}
 	mongo.InitConnection(context.TODO(), uri, "mosql")
+}
+
+func InitializeExport(ctx context.Context, data InitData) error {
+	return nil
 }
 
 func GenerateSchemaMapping(ctx context.Context, namespace, collection string) error {
