@@ -5,3 +5,5 @@ target/
 vendor/
 ./cmd/mosql 
 ./cmd/cmd
+mosql.db
+mosql_test.db

@@ -14,6 +14,7 @@ import (
 )
 
 func main() {
+	export.Setup()
 	app := &cli.App{
 		Name: "mosql",
 		Commands: []*cli.Command{
@@ -173,10 +174,14 @@ func handleExportInitAction(ctx *cli.Context) error {
 		}
 	}
 
-	err := export.InitializeExport(context.Background(), details)
+	exportID, err := export.InitializeExport(context.Background(), namespace, details)
 	if err != nil {
 		return fmt.Errorf("failed to initialize export, error %s", err)
 	}
+	nextPrompt := `Now you can either generate a default schema mapping or run export with default mapping with following commands
+    1) $ mosql export generate_mapping --namespacce <namespace_value> --dir-path <dir_path_value>
+    2) $ mosql export start --namespace <namespace_value> --type <type_value>`
+	fmt.Printf("\n✅ Export created with namespace `%s`. Export ID `%d`\n\n %s\n", namespace, exportID, nextPrompt)
 
 	return nil
 }

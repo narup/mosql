@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm/clause"
@@ -13,34 +14,36 @@ import (
 
 type Export struct {
 	gorm.Model
-	Namespace          string `gorm:"unique,index"`
-	Type               string
-	Source             Connection
-	Destination        Connection
-	Schemas            []Schema
-	ExcludeCollections []string
-	IncludeCollections []string
-	Creator            User
-	CreatorID          int64 `gorm:"index"`
-	Updater            User
-	UpdaterID          int64
+	Namespace               string `gorm:"unique,index"`
+	Type                    string
+	SourceConnectionID      uint
+	DestinationConnectionID uint
+	SourceConnection        Connection
+	DestinationConnection   Connection
+	Schemas                 []Schema
+	ExcludeCollections      string `gorm:"type:text"`
+	IncludeCollections      string `gorm:"type:text"`
+	Creator                 User
+	CreatorID               int64 `gorm:"index"`
+	Updater                 User
+	UpdaterID               int64
 }
 
 type Schema struct {
 	gorm.Model
-	ExportID   int64  `gorm:"index"`
+	ExportID   uint   `gorm:"index"`
 	Namespace  string `gorm:"index:ns_collection"`
 	Collection string `gorm:"index:ns_collection"`
 	Table      string
 	PrimaryKey string
 	Version    string
-	Indexes    []string
+	Indexes    string `gorm:"type:text"`
 	Mappings   []Mapping
 }
 
 type Mapping struct {
 	gorm.Model
-	SchemaID             int64 `gorm:"index"`
+	SchemaID             uint `gorm:"index"`
 	SourceFieldName      string
 	DestinationFieldName string
 	SourceType           string
@@ -55,15 +58,15 @@ type Connection struct {
 
 type User struct {
 	gorm.Model
-	FullName  *string
-	UserName  *string
+	FullName  string
+	UserName  string
 	Email     string
 	UserLogin UserLogin
 }
 
 type UserLogin struct {
 	gorm.Model
-	UserID                int64  `gorm:"index"`
+	UserID                uint   `gorm:"index"`
 	Password              string // hashed!
 	AccountActivatedDate  sql.NullTime
 	LastPasswordResetDate sql.NullTime
@@ -82,8 +85,16 @@ const (
 
 var coreDB *gorm.DB
 
-func init() {
-	db, err := gorm.Open(sqlite.Open("mosql.db"), &gorm.Config{})
+func Setup(test bool) {
+	if coreDB != nil {
+		return
+	}
+	log.Println("Setting up core SQLite database for mosql")
+	fileName := "mosql.db"
+	if test {
+		fileName = "mosql_test.db"
+	}
+	db, err := gorm.Open(sqlite.Open(fileName), &gorm.Config{})
 	if err != nil {
 		panicMsg := fmt.Sprintf("error starting mosql. error %s", err)
 		panic(panicMsg)
@@ -98,6 +109,16 @@ func init() {
 	db.AutoMigrate(&UserLogin{})
 
 	coreDB = db
+}
+
+func CreateExport(export *Export) (uint, error) {
+	tx := coreDB.Create(export)
+	if tx.Error != nil {
+		return 0, fmt.Errorf("error creating export %s", tx.Error)
+	}
+
+	log.Printf("Export created %d", export.ID)
+	return export.ID, nil
 }
 
 func FindExportByNamespace(namespace string) (*Export, error) {

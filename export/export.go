@@ -3,8 +3,10 @@ package export
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -25,20 +27,38 @@ type InitData struct {
 	Save                                string
 }
 
+// setup the mosql application
 func Setup() {
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found")
-	}
-
-	uri := os.Getenv("DATABASE_URL")
-	if uri == "" {
-		log.Printf("You must set your 'DATABASE_URL' environment variable. See\n\t https://www.mongodb.com/docs/drivers/go/current/usage-examples/#environment-variable")
-	}
-	mongo.InitConnection(context.TODO(), uri, "mosql")
+	core.Setup(false)
 }
 
-func InitializeExport(ctx context.Context, data InitData) error {
-	return nil
+// InitializeExport initlaizes the Mongo to SQL database export definition
+// Note that this does not create the schema mappings by itself but to generate the default
+// schema mappings for an export it needs to be initialzed first
+func InitializeExport(ctx context.Context, namespace string, data InitData) (uint, error) {
+	ce := new(core.Export)
+	ce.Namespace = namespace
+	ce.Type = fmt.Sprintf("mongo_to_%s", strings.ToLower(data.DestinationDatabaseType))
+	ce.Schemas = make([]core.Schema, 0)
+
+	ce.SourceConnection = core.Connection{
+		Name:          data.SourceDatabaseName,
+		ConnectionURI: data.SourceDatabaseConnectionString,
+	}
+	ce.DestinationConnection = core.Connection{
+		Name:          data.DestinationDatabaseName,
+		ConnectionURI: data.DestinationDatabaseConnectionString,
+	}
+	ce.Creator = core.User{
+		Email:    data.Email,
+		UserName: data.UserName,
+	}
+	ce.Updater = ce.Creator
+
+	ce.ExcludeCollections = data.CollectionsToInclude
+	ce.IncludeCollections = data.CollectionsToInclude
+
+	return core.CreateExport(ce)
 }
 
 func GenerateSchemaMapping(ctx context.Context, namespace, collection string) error {
@@ -54,4 +74,16 @@ func GenerateSchemaMapping(ctx context.Context, namespace, collection string) er
 	schema.Version = "1.0"
 
 	return nil
+}
+
+func Start() {
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found")
+	}
+
+	uri := os.Getenv("DATABASE_URL")
+	if uri == "" {
+		log.Printf("You must set your 'DATABASE_URL' environment variable. See\n\t https://www.mongodb.com/docs/drivers/go/current/usage-examples/#environment-variable")
+	}
+	mongo.InitConnection(context.TODO(), uri, "mosql")
 }
