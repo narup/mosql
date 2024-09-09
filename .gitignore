@@ -7,3 +7,4 @@ vendor/
 ./cmd/cmd
 mosql.db
 mosql_test.db
+mosql
