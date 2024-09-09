@@ -159,6 +159,9 @@ func flag(name, alias, usage string) cli.Flag {
 
 func handleExportInitAction(ctx *cli.Context) error {
 	namespace := ctx.String("namespace")
+	if namespace == "" {
+		return onExportCommandUsageErrors(ctx, errors.New("namespace value required"), true)
+	}
 
 	fmt.Printf("Initalizing export for namespace '%s'. Provide a few more details:\n", namespace)
 
@@ -176,7 +179,7 @@ func handleExportInitAction(ctx *cli.Context) error {
 
 	exportID, err := export.InitializeExport(context.Background(), namespace, details)
 	if err != nil {
-		return fmt.Errorf("failed to initialize export, error %s", err)
+		return fmt.Errorf("failed to initialize export, error `%s`", err)
 	}
 	nextPrompt := `Now you can either generate a default schema mapping or run export with default mapping with following commands
     1) $ mosql export generate_mapping --namespacce <namespace_value> --dir-path <dir_path_value>

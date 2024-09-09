@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"math/rand"
 	"testing"
 	"time"
@@ -9,7 +10,7 @@ import (
 )
 
 func TestCreateExport(t *testing.T) {
-	Setup(true)
+	testSetup()
 
 	ex := new(Export)
 	ex.Namespace = randomString(8)
@@ -35,6 +36,26 @@ func TestCreateExport(t *testing.T) {
 		assert.Failf(t, "Failed to create export", err.Error())
 	}
 	assert.True(t, exportID > 0, "test passed, export created")
+
+	savedExport, err := FindExportByNamespace(ex.Namespace)
+	if err != nil {
+		assert.Failf(t, "error loading saved export", "saved value should be loaded", err)
+	}
+	assert.NotNil(t, savedExport, "Saved export should not be nil")
+	assert.True(t, savedExport.ID > 0, "export id should be non zero")
+
+	assert.NotNil(t, savedExport.SourceConnection, "source connection cannot be nil")
+	fmt.Printf("Source connection url: %s\n", savedExport.SourceConnection.ConnectionURI)
+	assert.NotNil(t, savedExport.DestinationConnection, "destination connection cannot be nil")
+	fmt.Printf("Destination connection url: %s\n", savedExport.DestinationConnection.ConnectionURI)
+
+	assert.NotNil(t, savedExport.Creator, "Creator info cannot be nil")
+	fmt.Printf("Created by: %s, %s", savedExport.Creator.UserName, savedExport.Creator.Email)
+}
+
+func testSetup() {
+	deleteTestDBFile()
+	Setup(true)
 }
 
 func randomString(length int) string {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm/clause"
@@ -129,4 +130,12 @@ func FindExportByNamespace(namespace string) (*Export, error) {
 	}
 
 	return &export, nil
+}
+
+func deleteTestDBFile() {
+	_, err := os.ReadFile("./mosql_test.db")
+	if err == nil {
+		fmt.Println("Deleting old test db file")
+		os.Remove("./mosql_test.db")
+	}
 }

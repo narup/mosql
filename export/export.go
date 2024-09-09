@@ -36,6 +36,14 @@ func Setup() {
 // Note that this does not create the schema mappings by itself but to generate the default
 // schema mappings for an export it needs to be initialzed first
 func InitializeExport(ctx context.Context, namespace string, data InitData) (uint, error) {
+	savedExport, err := core.FindExportByNamespace(namespace)
+	if err != nil && err.Error() != "export not found" {
+		return 0, err
+	}
+	if savedExport != nil && savedExport.ID > 0 {
+		return 0, errors.New("export exists")
+	}
+
 	ce := new(core.Export)
 	ce.Namespace = namespace
 	ce.Type = fmt.Sprintf("mongo_to_%s", strings.ToLower(data.DestinationDatabaseType))
@@ -55,8 +63,8 @@ func InitializeExport(ctx context.Context, namespace string, data InitData) (uin
 	}
 	ce.Updater = ce.Creator
 
-	ce.ExcludeCollections = data.CollectionsToInclude
-	ce.IncludeCollections = data.CollectionsToInclude
+	ce.ExcludeCollections = formatCollectionList(data.CollectionsToInclude)
+	ce.IncludeCollections = formatCollectionList(data.CollectionsToInclude)
 
 	return core.CreateExport(ce)
 }
@@ -86,4 +94,14 @@ func Start() {
 		log.Printf("You must set your 'DATABASE_URL' environment variable. See\n\t https://www.mongodb.com/docs/drivers/go/current/usage-examples/#environment-variable")
 	}
 	mongo.InitConnection(context.TODO(), uri, "mosql")
+}
+
+func formatCollectionList(listValue string) string {
+	if listValue == "" {
+		return ""
+	}
+
+	// remove the extra spaces between the separator
+	list := strings.Split(listValue, ",")
+	return strings.Join(list, ",")
 }
