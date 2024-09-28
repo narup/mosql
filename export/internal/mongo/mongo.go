@@ -21,15 +21,17 @@ type MongoValue struct {
 
 type MongoType string
 
-var MongoTypePrimitiveDateTime MongoType = "primitive.DateTime"
-var MongoTypeMapInterface MongoType = "map[string]interface {}"
-var MongoTypeString MongoType = "string"
-var MongoTypeInt32 MongoType = "int32"
-var MongoTypeInt64 MongoType = "int64"
-var MongoTypeFloat64 MongoType = "float64"
-var MongoTypeBool MongoType = "bool"
-var MongoTypePrimitiveDecimal128 MongoType = "primitive.Decimal128"
-var MongoTypePrimitiveObjectID MongoType = "primitive.ObjectID"
+var (
+	MongoTypePrimitiveDateTime   MongoType = "primitive.DateTime"
+	MongoTypeMapInterface        MongoType = "map[string]interface {}"
+	MongoTypeString              MongoType = "string"
+	MongoTypeInt32               MongoType = "int32"
+	MongoTypeInt64               MongoType = "int64"
+	MongoTypeFloat64             MongoType = "float64"
+	MongoTypeBool                MongoType = "bool"
+	MongoTypePrimitiveDecimal128 MongoType = "primitive.Decimal128"
+	MongoTypePrimitiveObjectID   MongoType = "primitive.ObjectID"
+)
 
 func stringID(ID interface{}) string {
 	if ID != nil {
@@ -56,6 +58,11 @@ func InitConnection(ctx context.Context, uri, dbName string) error {
 
 	db = client.Database(dbName)
 	return nil
+}
+
+// Collections returns the list of all the collection names in the MongoDB
+func Collections(ctx context.Context) ([]string, error) {
+	return db.ListCollectionNames(ctx, bson.D{})
 }
 
 func Insert(ctx context.Context, collection string, doc interface{}) (string, error) {
@@ -133,7 +140,6 @@ func Delete(ctx context.Context, collection, objectID string) (int64, error) {
 //
 // Here, 'users' prefix is a collection name to make key unique
 func ToFlatDocument(ctx context.Context, collection string) map[string]MongoValue {
-
 	filter := bson.D{}
 	var res map[string]interface{}
 	err := db.Collection(collection).FindOne(ctx, filter).Decode(&res)
@@ -160,7 +166,7 @@ func mapKeyValuesRecursively(parentKey string, finalMap map[string]MongoValue, r
 
 		key = fmt.Sprintf("%s.%s", parentKey, key)
 
-		valueType := fmt.Sprintf("%s", reflect.TypeOf(value))
+		valueType := reflect.TypeOf(value).String()
 
 		switch MongoType(valueType) {
 		case MongoTypeString,
