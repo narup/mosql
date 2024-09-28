@@ -9,6 +9,7 @@ import (
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm/clause"
+	"gorm.io/gorm/logger"
 
 	"gorm.io/gorm"
 )
@@ -95,7 +96,11 @@ func Setup(test bool) {
 	if test {
 		fileName = "mosql_test.db"
 	}
-	db, err := gorm.Open(sqlite.Open(fileName), &gorm.Config{})
+
+	// gorm log levels - Silent, Error, Warn, Info
+	db, err := gorm.Open(sqlite.Open(fileName), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
 	if err != nil {
 		panicMsg := fmt.Sprintf("error starting mosql. error %s", err)
 		panic(panicMsg)
@@ -130,6 +135,20 @@ func FindExportByNamespace(namespace string) (*Export, error) {
 	}
 
 	return &export, nil
+}
+
+func FindAllExports() ([]*Export, error) {
+	var exports []*Export
+	result := coreDB.Find(&exports)
+
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	if result.RowsAffected == 0 {
+		return nil, errors.New("no exports saved")
+	}
+
+	return exports, nil
 }
 
 func deleteTestDBFile() {

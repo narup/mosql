@@ -1,0 +1,26 @@
+# start the postgres container: docker-compose -f postgres.yaml up -d
+# stop the container: docker-compose down
+# stop the container and remove volume: docker-compose down -v
+# view logs: docker-compose logs -f postgres
+# connect: psql -h localhost -p 5432 -U postgres -d testdb
+#
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:14-alpine
+    container_name: postgres-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123 
+      POSTGRES_DB: testdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+
+volumes:
+  postgres_data:
+    driver: local

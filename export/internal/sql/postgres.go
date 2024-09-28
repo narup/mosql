@@ -2,6 +2,7 @@ package sql
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -30,7 +31,13 @@ type Rows struct {
 var ErrNoRows = pgx.ErrNoRows
 
 func connectPostgresDB(cfg *PostgresConfig) (*pgx.ConnPool, error) {
+	if cfg.SSLMode == "" {
+		cfg.SSLMode = "disable"
+	}
 	pool, err := connect(cfg)
+	if err != nil {
+		log.Printf("First connection attempt failed. Error: %s\n", err)
+	}
 	// Fallback to ssl disable
 	if err != nil && cfg.SSLMode != "disable" {
 		cfg.SSLMode = "disable"
@@ -84,6 +91,8 @@ func execQueryWithPool(pool *pgx.ConnPool, queryWithNamedParams string, params m
 
 func connect(cfg *PostgresConfig) (*pgx.ConnPool, error) {
 	connURL := fmt.Sprintf("%s/%s?sslmode=%s", cfg.URL, cfg.DBName, cfg.SSLMode)
+
+	log.Printf("Connecting to postgres db at %s\n", connURL)
 
 	if cfg.SSLMode != "disable" && strings.Trim(cfg.SSLRootCert, " ") != "" {
 		connURL = fmt.Sprintf("%s&sslrootcert=%s", connURL, cfg.SSLRootCert)

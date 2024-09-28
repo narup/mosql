@@ -84,6 +84,20 @@ func GenerateSchemaMapping(ctx context.Context, namespace, collection string) er
 	return nil
 }
 
+func ListExports(ctx context.Context) ([]string, error) {
+	finalList := make([]string, 0)
+
+	exports, err := core.FindAllExports()
+	if err != nil {
+		return finalList, err
+	}
+
+	for _, ex := range exports {
+		finalList = append(finalList, ex.Namespace)
+	}
+	return finalList, nil
+}
+
 func Start() {
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found")

@@ -14,7 +14,6 @@ import (
 )
 
 func main() {
-	export.Setup()
 	app := &cli.App{
 		Name: "mosql",
 		Commands: []*cli.Command{
@@ -122,11 +121,16 @@ func exportStartCommand() *cli.Command {
 }
 
 func handleExportActions(ctx *cli.Context) error {
+	// perform the necessary setup
+	export.Setup()
+
 	switch ctx.Command.FullName() {
 	case "init":
 		return handleExportInitAction(ctx)
 	case "generate-mappings":
 		return handleExportGenerateMappings(ctx)
+	case "list":
+		return handleExportList(ctx)
 	default:
 		return errors.New("invalid command")
 	}
@@ -202,6 +206,18 @@ func handleExportGenerateMappings(ctx *cli.Context) error {
 	}
 
 	return export.GenerateSchemaMapping(context.Background(), namespace, filePath)
+}
+
+func handleExportList(ctx *cli.Context) error {
+	exports, err := export.ListExports(context.Background())
+	if err != nil {
+		return err
+	}
+	for index, ex := range exports {
+		fmt.Printf("%d. %s\n", index+1, ex)
+	}
+
+	return nil
 }
 
 func getExportDetails(currentValues export.InitData) export.InitData {

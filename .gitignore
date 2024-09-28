@@ -9,3 +9,4 @@ mosql.db
 mosql_test.db
 mosql
 build
+init-scripts/
