@@ -176,10 +176,10 @@ func formatCollectionList(listValue string) string {
 }
 
 func toCollectionList(listValue string) []string {
-	if list == "" {
+	if listValue == "" {
 		return []string{}
 	}
-	return strings.Split(list, ",")
+	return strings.Split(listValue, ",")
 }
 
 func toSnakeCase(s string) string {

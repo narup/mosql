@@ -3,6 +3,7 @@ package sql
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx"
 	"github.com/narup/mosql/export/internal/core"
@@ -28,6 +29,31 @@ func InitConnection(dbType string, conn core.Connection) (DB, error) {
 	}
 
 	return DB{}, errors.New("database type not supported")
+}
+
+// Generates a SQL string for creating a table
+//
+// CREATE TABLE [IF NOT EXISTS] table_name (
+//
+//	column1 datatype(length) column_contraint,
+//	column2 datatype(length) column_contraint,
+//	column3 datatype(length) column_contraint,
+//	  ...
+//	  table_constraints
+//	);
+func createTableWithColumnsSQL(schema core.Schema) string {
+	q := "CREATE TABLE IF NOT EXISTS %s ( %s )"
+
+	columnDefinitions := make([]string, 0)
+	for _, m := range schema.Mappings {
+		defn := fmt.Sprintf("%s %s", m.DestinationFieldName, strings.ToUpper(m.DestinationType))
+		if m.DestinationFieldName == schema.PrimaryKey {
+			defn = fmt.Sprintf("%s PRIMARY KEY", defn)
+		}
+		columnDefinitions = append(columnDefinitions, defn)
+	}
+
+	return fmt.Sprintf(q, fullTableName(schema), strings.Join(columnDefinitions, ",\n"))
 }
 
 func dropTableIfExistSQL(schema core.Schema) string {

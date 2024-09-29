@@ -10,6 +10,29 @@ import (
 )
 
 func TestSQLGeneration(t *testing.T) {
+	m1 := core.Mapping{
+		SchemaID:             0,
+		SourceFieldName:      "testFieldName",
+		SourceType:           "string",
+		DestinationFieldName: "test_field_name",
+		DestinationType:      "VARCHAR(255)",
+	}
+	m2 := core.Mapping{
+		SchemaID:             0,
+		SourceFieldName:      "secondFieldName",
+		SourceType:           "string",
+		DestinationFieldName: "second_field_name",
+		DestinationType:      "text",
+	}
+
+	m3 := core.Mapping{
+		SchemaID:             0,
+		SourceFieldName:      "numberFieldName",
+		SourceType:           "decimal",
+		DestinationFieldName: "number_field_name",
+		DestinationType:      "numeric(10, 2)",
+	}
+
 	s := core.Schema{
 		Namespace:  "sqltest",
 		Collection: "test_collection",
@@ -17,7 +40,7 @@ func TestSQLGeneration(t *testing.T) {
 		PrimaryKey: "id",
 		Version:    "1.0",
 		Indexes:    "",
-		Mappings:   []core.Mapping{},
+		Mappings:   []core.Mapping{m1, m2, m3},
 	}
 
 	actual1 := tableExistsSQL(s)
@@ -31,6 +54,10 @@ func TestSQLGeneration(t *testing.T) {
 	actual3 := truncateTableSQL(s)
 	expected3 := "TRUNCATE TABLE sqltest.test_table"
 	assertSQLValues(t, expected3, actual3)
+
+	actual4 := createTableWithColumnsSQL(s)
+	expected4 := "CREATE TABLE IF NOT EXISTS sqltest.test_table ( test_field_name VARCHAR(255), second_field_name TEXT, number_field_name NUMERIC(10, 2) )"
+	assertSQLValues(t, expected4, actual4)
 
 	fmt.Printf("****Test %s passed****\n", t.Name())
 }
