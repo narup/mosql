@@ -5,7 +5,6 @@ go 1.22.0
 require (
 	github.com/jackc/pgx v3.6.2+incompatible
 	github.com/joho/godotenv v1.5.1
-	github.com/kanmu/go-sqlfmt v0.0.1
 	github.com/stretchr/testify v1.9.0
 	go.mongodb.org/mongo-driver v1.15.0
 	gorm.io/driver/sqlite v1.5.6

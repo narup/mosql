@@ -120,11 +120,23 @@ func Setup(test bool) {
 func CreateExport(export *Export) (uint, error) {
 	tx := coreDB.Create(export)
 	if tx.Error != nil {
-		return 0, fmt.Errorf("error creating export %s", tx.Error)
+		return 0, tx.Error
 	}
 
 	log.Printf("Export created %d", export.ID)
 	return export.ID, nil
+}
+
+func CreateSchema(schema *Schema) (uint, error) {
+	if schema.ExportID < 1 {
+		return 0, errors.New("schema without export")
+	}
+	tx := coreDB.Create(schema)
+	if tx.Error != nil {
+		return 0, tx.Error
+	}
+
+	return schema.ID, nil
 }
 
 func FindExportByNamespace(namespace string) (*Export, error) {

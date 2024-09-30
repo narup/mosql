@@ -33,6 +33,15 @@ var (
 	MongoTypePrimitiveObjectID   MongoType = "primitive.ObjectID"
 )
 
+var mongoToSQLTypeMap = map[MongoType]string{
+	MongoTypeString:            "text",
+	MongoTypeBool:              "boolean",
+	MongoTypeInt32:             "integer",
+	MongoTypeInt64:             "bigint",
+	MongoTypeFloat64:           "numeric",
+	MongoTypePrimitiveDateTime: "timestamp with time zone",
+}
+
 func stringID(ID interface{}) string {
 	if ID != nil {
 		switch v := ID.(type) {
@@ -58,6 +67,14 @@ func InitConnection(ctx context.Context, uri, dbName string) error {
 
 	db = client.Database(dbName)
 	return nil
+}
+
+func SQLType(mongoType string) (string, error) {
+	if value, exists := mongoToSQLTypeMap[MongoType(mongoType)]; exists {
+		return value, nil
+	} else {
+		return "", errors.New("type not mapped")
+	}
 }
 
 // Collections returns the list of all the collection names in the MongoDB

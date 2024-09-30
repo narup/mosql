@@ -27,10 +27,6 @@ github.com/jinzhu/now
 github.com/joho/godotenv
 # github.com/kanmu/go-sqlfmt v0.0.1
 ## explicit
-github.com/kanmu/go-sqlfmt
-github.com/kanmu/go-sqlfmt/lexer
-github.com/kanmu/go-sqlfmt/parser
-github.com/kanmu/go-sqlfmt/parser/group
 # github.com/klauspost/compress v1.13.6
 ## explicit; go 1.15
 github.com/klauspost/compress

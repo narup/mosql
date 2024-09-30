@@ -2,33 +2,21 @@ package export
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
-	"time"
 	"unicode"
 
 	"github.com/joho/godotenv"
 	"github.com/narup/mosql/export/internal/core"
 	"github.com/narup/mosql/export/internal/mongo"
 )
-
-type InitData struct {
-	SourceDatabaseName                  string
-	SourceDatabaseConnectionString      string
-	DestinationDatabaseName             string
-	DestinationDatabaseConnectionString string
-	DestinationDatabaseType             string
-	CollectionsToExclude                string
-	CollectionsToInclude                string
-	UserName                            string
-	Email                               string
-	Save                                string
-}
 
 // setup the mosql application
 func Setup() {
@@ -51,7 +39,6 @@ func InitializeExport(ctx context.Context, namespace string, data InitData) (uin
 	ce.Namespace = namespace
 	ce.Type = fmt.Sprintf("mongo_to_%s", strings.ToLower(data.DestinationDatabaseType))
 	ce.Schemas = make([]core.Schema, 0)
-
 	ce.SourceConnection = core.Connection{
 		Name:          data.SourceDatabaseName,
 		ConnectionURI: data.SourceDatabaseConnectionString,
@@ -65,14 +52,15 @@ func InitializeExport(ctx context.Context, namespace string, data InitData) (uin
 		UserName: data.UserName,
 	}
 	ce.Updater = ce.Creator
-
 	ce.ExcludeCollections = formatCollectionList(data.CollectionsToInclude)
 	ce.IncludeCollections = formatCollectionList(data.CollectionsToInclude)
 
 	return core.CreateExport(ce)
 }
 
-func GenerateSchemaMapping(ctx context.Context, namespace, filePath string) error {
+// GenerateSchemaMapping generate default schema mappings for an export with
+// given namespace. This connects to the actual source Mongo database
+func GenerateSchemaMapping(ctx context.Context, namespace, dirPath string) error {
 	export, err := core.FindExportByNamespace(namespace)
 	if err != nil {
 		return err
@@ -112,33 +100,73 @@ func GenerateSchemaMapping(ctx context.Context, namespace, filePath string) erro
 		colls = slices.DeleteFunc(colls, func(coll string) bool {
 			return slices.Contains(excludes, coll)
 		})
-	} else {
-		// ignore! includes & excludes are mutually exclusive
 	}
 	if len(colls) == 0 {
 		return errors.New("not enough collections")
 	}
 
+	schemaFilePaths := make([]string, 0)
+
+	// for each collection generate schema and the mappings for collection keys
 	for index, coll := range colls {
+		mappings := make([]core.Mapping, 0)
 		flatMap := mongo.ToFlatDocument(ctx, coll)
 		if flatMap == nil {
 			return errors.New("schema mapping generation failed. Failed to generate key value map")
 		}
 
-		schema := new(core.Schema)
-		schema.Namespace = namespace
-		schema.Collection = coll
-		schema.Table = toSnakeCase(coll)
-		schema.CreatedAt = time.Now()
-		schema.Mappings = make([]core.Mapping, 0) // populate mappings
-		schema.Version = "1.0"
+		for key, value := range flatMap {
+			sqlType, err := mongo.SQLType(value.Type)
+			if err != nil {
+				return fmt.Errorf("type not mapped for field %s(%s)", key, value.Type)
+			}
+			m := core.Mapping{
+				SourceFieldName:      key,
+				SourceType:           value.Type,
+				DestinationFieldName: toSnakeCase(key),
+				DestinationType:      sqlType,
+			}
+			mappings = append(mappings, m)
+		}
 
-		log.Printf("Generated schema for collection %s, index %d", coll, index)
+		schema := core.Schema{
+			ExportID:   export.ID,
+			Namespace:  namespace,
+			Collection: coll,
+			Table:      toSnakeCase(coll),
+			Mappings:   mappings,
+			Version:    "1.0-default-generated",
+		}
+		schemaID, err := core.CreateSchema(&schema)
+		if err != nil {
+			return fmt.Errorf("error saving schema %s. Error: %s", coll, err)
+		}
+		log.Printf("Generated schema for collection %s, id %d, index %d", coll, schemaID, index)
+
+		// generate JSON mapping file for schema
+		schemaJSON := toJSONSchemaModel(schema)
+		schemaFileName := fmt.Sprintf("%s.json", coll)
+		err = writeJSONToFile(schemaJSON, dirPath, schemaFileName)
+		if err != nil {
+			return fmt.Errorf("schema json mapping error: %s", err)
+		}
+		schemaFilePaths = append(schemaFilePaths, fmt.Sprintf("%s/%s", dirPath, schemaFileName))
 	}
+
+	// generate json file for export
+	exportJSON := toJSONExportModel(export, schemaFilePaths)
+	exportFileName := fmt.Sprintf("export_%s.json", namespace)
+	err = writeJSONToFile(exportJSON, dirPath, exportFileName)
+	if err != nil {
+		return fmt.Errorf("export json mapping error: %s", err)
+	}
+
+	log.Printf("Export schema mappings generated")
 
 	return nil
 }
 
+// ListExports list all the saved exports
 func ListExports(ctx context.Context) ([]string, error) {
 	finalList := make([]string, 0)
 
@@ -153,6 +181,7 @@ func ListExports(ctx context.Context) ([]string, error) {
 	return finalList, nil
 }
 
+// Start - starts the export process
 func Start() {
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found")
@@ -163,6 +192,86 @@ func Start() {
 		log.Printf("You must set your 'DATABASE_URL' environment variable. See\n\t https://www.mongodb.com/docs/drivers/go/current/usage-examples/#environment-variable")
 	}
 	mongo.InitConnection(context.TODO(), uri, "mosql")
+}
+
+func toJSONExportModel(export *core.Export, schemaFilePaths []string) Export {
+	exportJSON := Export{
+		ID:        export.ID,
+		Namespace: export.Namespace,
+		Type:      export.Type,
+		SourceConnection: Connection{
+			Name:          export.SourceConnection.Name,
+			ConnectionURI: export.SourceConnection.ConnectionURI,
+		},
+		DestinationConnection: Connection{
+			Name:          export.DestinationConnection.Name,
+			ConnectionURI: export.DestinationConnection.ConnectionURI,
+		},
+		Creator: User{
+			Name:  export.Creator.UserName,
+			Email: export.Creator.Email,
+		},
+		Updater: User{
+			Name:  export.Updater.UserName,
+			Email: export.Updater.Email,
+		},
+		ExcludeCollections: export.ExcludeCollections,
+		IncludeCollections: export.IncludeCollections,
+		Schemas:            schemaFilePaths,
+		CreatedAt:          export.CreatedAt,
+		UpdatedAt:          export.UpdatedAt,
+	}
+	return exportJSON
+}
+
+func toJSONSchemaModel(schema core.Schema) Schema {
+	js := Schema{
+		ID:         schema.ID,
+		ExportID:   schema.ExportID,
+		Collection: schema.Collection,
+		Table:      schema.Table,
+		Version:    schema.Version,
+		CreatedAt:  schema.CreatedAt,
+		UpdatedAt:  schema.UpdatedAt,
+	}
+
+	return js
+}
+
+func toJSONMappingModel(mapping core.Mapping) Mapping {
+	jm := Mapping{
+		ID:                   mapping.ID,
+		SchemaID:             mapping.SchemaID,
+		SourceFieldName:      mapping.SourceFieldName,
+		DestinationFieldName: mapping.DestinationFieldName,
+		SourceType:           mapping.SourceType,
+		DestinationType:      mapping.DestinationType,
+	}
+
+	return jm
+}
+
+func writeJSONToFile(data interface{}, dirPath, fileName string) error {
+	// Create the directory if it doesn't exist
+	if err := os.MkdirAll(dirPath, os.ModePerm); err != nil {
+		return fmt.Errorf("failed to create directory: %v", err)
+	}
+
+	filePath := filepath.Join(dirPath, fileName)
+
+	// Marshal the data into JSON
+	jsonData, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal JSON: %v", err)
+	}
+
+	// Write the JSON data to the file
+	err = os.WriteFile(filePath, jsonData, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write file: %v", err)
+	}
+
+	return nil
 }
 
 func formatCollectionList(listValue string) string {
