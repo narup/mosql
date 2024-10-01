@@ -15,17 +15,18 @@ type Stage interface {
 type Producer interface {
 	Stage
 	HandleDemand() DataEvent
-}
-
-type ProducerConsumer interface {
-	Stage
-	HandleDemand() DataEvent
-	Consume(dataEvent DataEvent)
+	Subscribe()
 }
 
 type Consumer interface {
 	Stage
-	Consume()
+	HandleData()
+}
+
+type ProducerConsumer interface {
+	Stage
+	Producer
+	Consumer
 }
 
 // Pipeline defines end-to-end export Pipeline
@@ -47,6 +48,16 @@ func (p *Pipeline) AddStage(s Stage) error {
 			p.producers = append(p.producers, &producer)
 		} else {
 			return errors.New("invalid producer type")
+		}
+	case "ProducerConsumer":
+		if p.producerConsumers == nil {
+			p.producerConsumers = make([]*ProducerConsumer, 0)
+		}
+		pc, ok := s.(ProducerConsumer)
+		if ok {
+			p.producerConsumers = append(p.producerConsumers, &pc)
+		} else {
+			return errors.New("invalid producer consumer")
 		}
 	}
 	return nil
