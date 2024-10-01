@@ -37,7 +37,8 @@ type Connection struct {
 }
 
 type User struct {
-	Name      string    `json:"name"`
+	UserName  string    `json:"user_name"`
+	FullName  string    `json:"full_name`
 	Email     string    `json:"email"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

@@ -166,6 +166,51 @@ func GenerateSchemaMapping(ctx context.Context, namespace, dirPath string) error
 	return nil
 }
 
+// LoadSchemaMapping loads the updated schema mapping after default mappings can be customized
+// before running the export. Default mapping takes an opiniated view of type conversion and
+// field names mapping. This helps overriding those default choices made by the mosql CLI tool
+// for this to work export has to be initialized at least. Mappings can be handwritten provided
+// it matches the expected format. But, generating a default mapping is a good way to go about
+// defining a mapping
+func LoadSchemaMapping(ctx context.Context, namespace, dirPath string) ([]string, error) {
+	// track changes across export schemas
+	changeset := make([]string, 0)
+
+	savedExport, err := core.FindExportByNamespace(namespace)
+	if err != nil {
+		return changeset, err
+	}
+
+	exportData, err := readJSONFile(dirPath, fmt.Sprintf("%s_export.json", namespace), Export{})
+	if err != nil {
+		return changeset, err
+	}
+
+	var export Export
+	if ex, ok := exportData.(Export); !ok {
+		return changeset, errors.New("failed to load export mapping JSON file")
+	} else {
+		export = ex
+	}
+	if savedExport.ID != export.ID {
+		return changeset, errors.New("export ID value doesn't match")
+	}
+
+	// handle diffs - updates the savedExport data model and changeset
+	// changeset includes the list of everything that changed
+	// updated is one way from export JSON based on schema mapping files to
+	// data model
+	changeset = handleExportDiff(savedExport, export, changeset)
+	if len(changeset) == 0 {
+		// no further action needed
+		return changeset, nil
+	}
+
+	// save the updated changes to the database
+
+	return changeset, nil
+}
+
 // ListExports list all the saved exports
 func ListExports(ctx context.Context) ([]string, error) {
 	finalList := make([]string, 0)
@@ -208,12 +253,14 @@ func toJSONExportModel(export *core.Export, schemaFilePaths []string) Export {
 			ConnectionURI: export.DestinationConnection.ConnectionURI,
 		},
 		Creator: User{
-			Name:  export.Creator.UserName,
-			Email: export.Creator.Email,
+			UserName: export.Creator.UserName,
+			FullName: export.Creator.FullName,
+			Email:    export.Creator.Email,
 		},
 		Updater: User{
-			Name:  export.Updater.UserName,
-			Email: export.Updater.Email,
+			UserName: export.Updater.UserName,
+			FullName: export.Updater.FullName,
+			Email:    export.Updater.Email,
 		},
 		ExcludeCollections: export.ExcludeCollections,
 		IncludeCollections: export.IncludeCollections,
@@ -274,6 +321,25 @@ func writeJSONToFile(data interface{}, dirPath, fileName string) error {
 	return nil
 }
 
+func readJSONFile(dirPath, fileName string, data interface{}) (interface{}, error) {
+	// Construct the full file path
+	filePath := filepath.Join(dirPath, fileName)
+
+	// Read the file
+	file, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("error reading config file: %v", err)
+	}
+
+	// Unmarshal the JSON data into the struct
+	err = json.Unmarshal(file, &data)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarshaling config: %v", err)
+	}
+
+	return data, nil
+}
+
 func formatCollectionList(listValue string) string {
 	if listValue == "" {
 		return ""
@@ -319,4 +385,67 @@ func isLowerCase(s string) bool {
 		}
 	}
 	return true
+}
+
+func handleExportDiff(savedExport *core.Export, newExport Export, changeset []string) []string {
+	changeset = handleConnectionDiff(savedExport, newExport, changeset)
+	changeset = handleUserDiff(savedExport, newExport, changeset)
+
+	if savedExport.IncludeCollections != newExport.IncludeCollections {
+		changeset = append(changeset, "Include collection list chnaged")
+		savedExport.IncludeCollections = formatCollectionList(newExport.IncludeCollections)
+	}
+	if savedExport.ExcludeCollections != newExport.ExcludeCollections {
+		changeset = append(changeset, "Exclude collection list changed")
+		savedExport.ExcludeCollections = formatCollectionList(newExport.ExcludeCollections)
+	}
+	return changeset
+}
+
+func handleUserDiff(savedExport *core.Export, newExport Export, changeset []string) []string {
+	if savedExport.Creator.UserName != newExport.Creator.UserName {
+		changeset = append(changeset, "Export creator user name changed")
+		savedExport.Creator.UserName = newExport.Creator.UserName
+	}
+	if savedExport.Creator.FullName != newExport.Creator.FullName {
+		changeset = append(changeset, "Export creator full name changed")
+		savedExport.Creator.FullName = newExport.Creator.FullName
+	}
+	if savedExport.Creator.Email != newExport.Creator.Email {
+		changeset = append(changeset, "Export creator email changed")
+		savedExport.Creator.Email = newExport.Creator.Email
+	}
+	if savedExport.Updater.UserName != newExport.Updater.UserName {
+		changeset = append(changeset, "Export updater user name changed")
+		savedExport.Updater.UserName = newExport.Updater.UserName
+	}
+	if savedExport.Updater.FullName != newExport.Updater.FullName {
+		changeset = append(changeset, "Export updater full name changed")
+		savedExport.Updater.FullName = newExport.Updater.FullName
+	}
+	if savedExport.Updater.Email != newExport.Updater.Email {
+		changeset = append(changeset, "Export updater email changed")
+		savedExport.Updater.Email = newExport.Updater.Email
+	}
+
+	return changeset
+}
+
+func handleConnectionDiff(savedExport *core.Export, newExport Export, changeset []string) []string {
+	if savedExport.SourceConnection.Name != newExport.SourceConnection.Name {
+		changeset = append(changeset, "Source database connection name")
+		savedExport.SourceConnection.Name = newExport.SourceConnection.Name
+	}
+	if savedExport.SourceConnection.ConnectionURI != newExport.SourceConnection.ConnectionURI {
+		changeset = append(changeset, "Source database connection uri")
+	}
+	if savedExport.DestinationConnection.Name != newExport.DestinationConnection.Name {
+		changeset = append(changeset, "Destination database connection name")
+		savedExport.DestinationConnection.Name = newExport.DestinationConnection.Name
+	}
+	if savedExport.DestinationConnection.ConnectionURI != newExport.DestinationConnection.ConnectionURI {
+		changeset = append(changeset, "Destination database connection uri")
+	}
+
+	return changeset
 }
