@@ -19,12 +19,7 @@ func (fep *FullExportProducer) Init() error {
 	return nil
 }
 
-func (fep *FullExportProducer) Start() error {
-	// start the export process
-	return nil
-}
-
-func (fep *FullExportProducer) HandleDemand() ([]pipeline.Payload, error) {
+func (fep *FullExportProducer) Produce() ([]pipeline.Payload, error) {
 	payload := make([]pipeline.Payload, 0)
 	return payload, nil
 }
@@ -46,18 +41,8 @@ func (fepc *FullExportProducerConsumer) Init() error {
 	return nil
 }
 
-func (fepc *FullExportProducerConsumer) Start() error {
-	// start the export process
-	return nil
-}
-
-func (fepc *FullExportProducerConsumer) HandleDemand(demandCount int) ([]pipeline.Payload, error) {
-	payload := make([]pipeline.Payload, 0)
-	return payload, nil
-}
-
-func (fepc *FullExportProducerConsumer) HandleData(payload []pipeline.Payload) error {
-	return nil
+func (fepc *FullExportProducerConsumer) Process(payload []pipeline.Payload) ([]pipeline.Payload, error) {
+	return nil, nil
 }
 
 type FullExportConsumer struct {
@@ -74,12 +59,7 @@ func (fec *FullExportConsumer) Init() error {
 	return nil
 }
 
-func (fec *FullExportConsumer) Start() error {
-	// start the export process
-	return nil
-}
-
-func (fec *FullExportConsumer) HandleData(payload []pipeline.Payload) error {
+func (fec *FullExportConsumer) Consume(payload []pipeline.Payload) error {
 	return nil
 }
 
