@@ -4,6 +4,18 @@
 
 **This is still a work in progress. Not ready for production use**
 
+# About 
+CLI and web tool that helps you migrate MongoDB JSON data to Postgres. It supports both one time full data export as well as near real-time based on MongoDB Changestream. If you are looking to migrate your core application database or continue using MongoDB for your application but prefer using SQL for reporting MoSQL is your tool.
+
+# Features 
+- Full data export 
+- Near real-time replication from Mongo to Postgres using Mongo changestream 
+- Generate default schema mapping to map Mongo's collection and its keys to corresponding SQL table and its columns 
+- Customize the export to include and exclude collections 
+- Mappings can be fully customized to control the collection to SQL transformation - data type, field name etc
+- Reporting - error and export progress and performance 
+- Web admin to manage multiple export pipelines, meaning you can export to multiple SQL schemas from the same MongoDB source
+
 # Getting Started
 
 ### 1. Initialize new database export and configure
