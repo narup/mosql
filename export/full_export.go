@@ -1,4 +1,4 @@
-package stage
+package export
 
 import (
 	"github.com/narup/mosql/export/internal/core"
@@ -12,7 +12,7 @@ type FullExportProducer struct {
 }
 
 func (fep *FullExportProducer) Identifier() string {
-	return "full_export_producer"
+	return "producer_stage_1_segment_collection"
 }
 
 func (fep *FullExportProducer) Init() error {
@@ -33,7 +33,7 @@ type FullExportProducerConsumer struct {
 }
 
 func (fepc *FullExportProducerConsumer) Identifier() string {
-	return "full_export_producer_consumer"
+	return "producer_consumer_stage_2_read_collection"
 }
 
 func (fepc *FullExportProducerConsumer) Init() error {
@@ -51,7 +51,7 @@ type FullExportConsumer struct {
 }
 
 func (fec *FullExportConsumer) Identifier() string {
-	return "full_export_consumer"
+	return "producer_consumer_stage_2_read_collection"
 }
 
 func (fec *FullExportConsumer) Init() error {
@@ -83,12 +83,12 @@ func CreateFullExportPipeline(export core.Export) (*pipeline.Pipeline, error) {
 	fullExportPipeline.AddStage(fepc, pipeline.StageConfig{
 		Type:        pipeline.StageTypeProducerConsumer,
 		Identifier:  "producer_consumer_stage_2_read_collection",
-		SubcribedTo: []string{"FullExportProducer"},
+		SubcribedTo: []string{"producer_stage_1_segment_collections"},
 	})
 	fullExportPipeline.AddStage(fec, pipeline.StageConfig{
 		Type:        pipeline.StageTypeConsumer,
 		Identifier:  "consumer_stage_3_insert_sql",
-		SubcribedTo: []string{"FullExportProducerConsumer"},
+		SubcribedTo: []string{"producer_consumer_stage_2_read_collection"},
 	})
 
 	return fullExportPipeline, nil

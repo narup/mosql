@@ -54,7 +54,8 @@ var (
 	StageTypeProducer         StageType = "Producer"
 )
 
-// StageConfig config for a given stage
+// StageConfig config for a given stage based on the stage type
+// diferent worker configurations can be applied
 type StageConfig struct {
 	Type        StageType
 	Identifier  string
@@ -92,6 +93,9 @@ type Pipeline struct {
 	stageConfigMap map[string]StageConfig
 }
 
+// AddStage add different stages of the data pipeline
+// value returned by stage.Identifier() should match the
+// identifier in StageConfig
 func (p *Pipeline) AddStage(s Stage, cfg StageConfig) error {
 	if p.stageMap == nil {
 		p.stageMap = make(map[string]Stage)
@@ -100,7 +104,7 @@ func (p *Pipeline) AddStage(s Stage, cfg StageConfig) error {
 		p.stageConfigMap = make(map[string]StageConfig)
 	}
 
-	if cfg.Type == StageTypeConsumer && cfg.SubcribedTo == nil || len(cfg.SubcribedTo) == 0 {
+	if (cfg.Type == StageTypeConsumer || cfg.Type == StageTypeProducerConsumer) && cfg.SubcribedTo == nil || len(cfg.SubcribedTo) == 0 {
 		return fmt.Errorf("%s not subscribed to any producer", cfg.Identifier)
 	}
 
@@ -190,9 +194,9 @@ func (pipeline *Pipeline) Start() error {
 // Stop sends the pipeline by sending the done signal
 // there's no guarantee on how long it will take to stop
 func (pipeline *Pipeline) Stop() {
-	log.Printf("Sending stop signal to the pipeline")
+	log.Printf("Pipeline: sending stop signal to the pipeline\n")
 	close(pipeline.done)
-	log.Printf("Waiting for pipeline to stop...")
+	log.Printf("Pipeline: waiting for pipeline to stop...\n")
 	// Give the worker time to stop
 	time.Sleep(5 * time.Second)
 }
