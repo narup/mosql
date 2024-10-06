@@ -18,7 +18,8 @@ CLI and web tool that helps you migrate MongoDB JSON data to Postgres. It suppor
 
 # Getting Started
 
-### 1. Initialize new database export and configure
+### 1. Initialize a new database export and configure
+NOTE: export configuration can be changed later
 
  ``` $ mosql export init <namespace> ```
 above command will prompt you for more details about the export
