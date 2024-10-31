@@ -55,7 +55,7 @@ func TestSQLGeneration(t *testing.T) {
 	expected3 := "TRUNCATE TABLE sqltest.test_table"
 	assertSQLValues(t, expected3, actual3)
 
-	actual4 := createTableIfExistsWithColumnsSQL(s)
+	actual4 := createTableIfNotExistsWithColumnsSQL(s)
 	expected4 := "CREATE TABLE IF NOT EXISTS sqltest.test_table ( test_field_name VARCHAR(255), second_field_name TEXT, number_field_name NUMERIC(10, 2) )"
 	assertSQLValues(t, expected4, actual4)
 

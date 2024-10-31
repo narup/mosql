@@ -120,10 +120,11 @@ func GenerateSchemaMapping(ctx context.Context, namespace, dirPath string) error
 			if err != nil {
 				return fmt.Errorf("type not mapped for field %s(%s)", key, value.Type)
 			}
+
 			m := core.Mapping{
 				SourceFieldName:      key,
 				SourceType:           value.Type,
-				DestinationFieldName: toSnakeCase(key),
+				DestinationFieldName: sqlColumnName(key, coll),
 				DestinationType:      sqlType,
 			}
 			mappings = append(mappings, m)
@@ -166,12 +167,12 @@ func GenerateSchemaMapping(ctx context.Context, namespace, dirPath string) error
 	return nil
 }
 
-// LoadSchemaMapping loads the updated schema mapping after default mappings can be customized
+// LoadSchemaMapping loads the updated schema mapping after default mappings is customized
 // before running the export. Default mapping takes an opiniated view of type conversion and
-// field names mapping. This helps overriding those default choices made by the mosql CLI tool
-// for this to work export has to be initialized at least. Mappings can be handwritten provided
-// it matches the expected format. But, generating a default mapping is a good way to go about
-// defining a mapping
+// field names mapping. Users can override those default choices made by the mosql CLI tool.
+// For this to work, export has to be initialized and export should already exists.
+// Mappings can be handwritten provided it matches the expected format. But, generating a
+// default mapping is a good way to go about defining a mapping
 func LoadSchemaMapping(ctx context.Context, namespace, dirPath string) ([]string, error) {
 	// track changes across export schemas
 	changeset := make([]string, 0)
@@ -181,18 +182,19 @@ func LoadSchemaMapping(ctx context.Context, namespace, dirPath string) ([]string
 		return changeset, err
 	}
 
+	// read the export definition JSON file
 	exportData, err := readJSONFile(dirPath, fmt.Sprintf("%s_export.json", namespace), Export{})
 	if err != nil {
 		return changeset, err
 	}
 
-	var export Export
+	var newExport Export
 	if ex, ok := exportData.(Export); !ok {
 		return changeset, errors.New("failed to load export mapping JSON file")
 	} else {
-		export = ex
+		newExport = ex
 	}
-	if savedExport.ID != export.ID {
+	if savedExport.ID != newExport.ID {
 		return changeset, errors.New("export ID value doesn't match")
 	}
 
@@ -200,10 +202,26 @@ func LoadSchemaMapping(ctx context.Context, namespace, dirPath string) ([]string
 	// changeset includes the list of everything that changed
 	// updated is one way from export JSON based on schema mapping files to
 	// data model
-	changeset = handleExportDiff(savedExport, export, changeset)
+	changeset = handleExportDiff(savedExport, newExport, changeset)
 	if len(changeset) == 0 {
 		// no further action needed
 		return changeset, nil
+	}
+
+	// load schemas
+	for _, schemaPath := range newExport.Schemas {
+		fileData, err := readJSONFile(dirPath, schemaPath, Schema{})
+		if err != nil {
+			return changeset, err
+		}
+		var newSchema Schema
+		if schema, ok := fileData.(Schema); !ok {
+			return changeset, fmt.Errorf("failed to load schema mapping JSON file %s", schemaPath)
+		} else {
+			newSchema = schema
+		}
+		// read existing schema from the db. schema may not be in db if user
+		// added a new mapping file definition
 	}
 
 	// save the updated changes to the database
@@ -357,6 +375,15 @@ func toCollectionList(listValue string) []string {
 	return strings.Split(listValue, ",")
 }
 
+func sqlColumnName(key, collection string) string {
+	// key has a prefix of collection name for uniqueness, we don't need that for SQL field name
+	keyWithoutColl := strings.Replace(key, fmt.Sprintf("%s.", collection), "", 1)
+	return toSnakeCase(keyWithoutColl)
+}
+
+// regex to remove extra underscores
+var removeUnderscores = regexp.MustCompile(`_+`)
+
 func toSnakeCase(s string) string {
 	// Check if the string is already in lower case (with or without underscores)
 	if isLowerCase(s) {
@@ -372,9 +399,15 @@ func toSnakeCase(s string) string {
 		result.WriteRune(unicode.ToLower(r))
 	}
 
+	replacedString := strings.Map(func(r rune) rune {
+		if r == '.' {
+			return '_'
+		}
+		return r // Keep other runes unchanged
+	}, result.String())
+
 	// Remove any consecutive underscores
-	re := regexp.MustCompile(`_+`)
-	return re.ReplaceAllString(result.String(), "_")
+	return removeUnderscores.ReplaceAllString(replacedString, "_")
 }
 
 func isLowerCase(s string) bool {

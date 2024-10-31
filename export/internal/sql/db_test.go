@@ -8,6 +8,7 @@ import (
 )
 
 // this test might fail if postgres is not running locally
+// follow postgres.yaml docker compose to run the postgres locallly
 func TestDBPostgresConnection(t *testing.T) {
 	conn := core.Connection{
 		Name:          "testdb",

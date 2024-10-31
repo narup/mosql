@@ -39,7 +39,7 @@ func InitConnection(dbType string, conn core.Connection) (DB, error) {
 // 3. Alter existing tables, if schema changed
 func PrepareExport(ctx context.Context, export core.Export, db DB) error {
 	for _, schema := range export.Schemas {
-		createSQL := createTableIfExistsWithColumnsSQL(schema)
+		createSQL := createTableIfNotExistsWithColumnsSQL(schema)
 		res, err := db.conn.Exec(createSQL)
 		if err != nil {
 			return err
@@ -80,7 +80,7 @@ func hasSchemaChanged(schema core.Schema) (bool, string) {
 //	  ...
 //	  table_constraints
 //	);
-func createTableIfExistsWithColumnsSQL(schema core.Schema) string {
+func createTableIfNotExistsWithColumnsSQL(schema core.Schema) string {
 	q := "CREATE TABLE IF NOT EXISTS %s ( %s )"
 
 	columnDefinitions := make([]string, 0)
