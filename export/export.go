@@ -198,6 +198,12 @@ func LoadSchemaMapping(ctx context.Context, namespace, dirPath string) ([]string
 		return changeset, errors.New("export ID value doesn't match")
 	}
 
+	// lookup map for schema based on collection
+	schemaMap := make(map[string]*core.Schema)
+	for _, ss := range savedExport.Schemas {
+		schemaMap[ss.Collection] = &ss
+	}
+
 	// handle diffs - updates the savedExport data model and changeset
 	// changeset includes the list of everything that changed
 	// updated is one way from export JSON based on schema mapping files to
@@ -220,13 +226,49 @@ func LoadSchemaMapping(ctx context.Context, namespace, dirPath string) ([]string
 		} else {
 			newSchema = schema
 		}
-		// read existing schema from the db. schema may not be in db if user
-		// added a new mapping file definition
+
+		savedSchema := schemaMap[newSchema.Collection]
+		if savedSchema != nil {
+			handleSchemaDiff(savedSchema, newSchema, changeset)
+
+			mappingsMap := make(map[string]*core.Mapping)
+			for _, m := range savedSchema.Mappings {
+				mappingsMap[m.SourceFieldName] = &m
+			}
+
+			for _, nm := range newSchema.Mappings {
+				savedMapping := mappingsMap[nm.SourceFieldName]
+				if savedMapping != nil {
+					// handle mapping diff
+				} else {
+					savedMapping, err := saveNewMapping(nm)
+					if err != nil {
+						return changeset, fmt.Errorf("failed to save schema mapping for %s.%s. Error: %s", newSchema.Collection, nm.SourceFieldName, err)
+					}
+					savedSchema.Mappings = append(savedSchema.Mappings, *savedMapping)
+				}
+			}
+		} else {
+			savedSchema, err := saveNewSchema(newSchema)
+			if err != nil {
+				return changeset, fmt.Errorf("failed to save schema mapping for %s. Error: %s", newSchema.Collection, err)
+			}
+			savedExport.Schemas = append(savedExport.Schemas, *savedSchema)
+		}
 	}
 
 	// save the updated changes to the database
+	core.UpdateExport(savedExport)
 
 	return changeset, nil
+}
+
+func saveNewSchema(newSchema Schema) (*core.Schema, error) {
+	return nil, nil
+}
+
+func saveNewMapping(newMapping Mapping) (*core.Mapping, error) {
+	return nil, nil
 }
 
 // ListExports list all the saved exports
@@ -478,6 +520,27 @@ func handleConnectionDiff(savedExport *core.Export, newExport Export, changeset 
 	}
 	if savedExport.DestinationConnection.ConnectionURI != newExport.DestinationConnection.ConnectionURI {
 		changeset = append(changeset, "Destination database connection uri")
+	}
+
+	return changeset
+}
+
+func handleSchemaDiff(savedSchema *core.Schema, newSchema Schema, changeset []string) []string {
+	if savedSchema.Table != newSchema.Table {
+		changeset = append(changeset, "Table name changed")
+		savedSchema.Table = newSchema.Table
+	}
+	if savedSchema.PrimaryKey != newSchema.PrimaryKey {
+		changeset = append(changeset, "Primary key changed")
+		savedSchema.PrimaryKey = newSchema.PrimaryKey
+	}
+	if savedSchema.Version != newSchema.Version {
+		changeset = append(changeset, "Schema version changed")
+		savedSchema.Version = newSchema.Version
+	}
+	if savedSchema.Indexes != newSchema.Indexes {
+		changeset = append(changeset, "Schema indexes changed")
+		savedSchema.Indexes = newSchema.Indexes
 	}
 
 	return changeset
